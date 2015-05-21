@@ -1,0 +1,8 @@
+include VERSION.txt
+include README.rst
+include CHANGELOG.txt
+include setup.py
+
+exclude *.pyc
+exclude setup.cfg
+exclude MANIFEST.in
