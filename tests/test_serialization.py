@@ -1,10 +1,10 @@
-from drf_nested_resources import HyperlinkedNestedIdentityField
-
 from django.core.urlresolvers import reverse
 from nose.tools import eq_
 from rest_framework.compat import RequestFactory
 from rest_framework.relations import PKOnlyObject
 from rest_framework.request import Request
+
+from drf_nested_resources.fields import HyperlinkedNestedIdentityField
 
 
 class TestIdentityField(object):
