@@ -46,5 +46,5 @@ setup(
     license='BSD (http://dev.2degreesnetwork.com/p/2degrees-license.html)',
     include_package_data=True,
     exclude_package_data={'': ['README.rst', 'CHANGELOG.txt']},
-    install_requires=['djangorestframework == 3.1.2'],
+    install_requires=['djangorestframework == 3.1.2', 'pyrecord == 1.0rc2'],
     )
