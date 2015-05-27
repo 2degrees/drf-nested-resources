@@ -11,7 +11,8 @@ from tests.django_project.app.views import DeveloperViewSet
 
 class TestURLPatternGeneration(object):
 
-    def test_default_router(self):
+    @staticmethod
+    def test_default_router():
         routes = []
         urlpatterns = make_urlpatterns_from_routes(routes)
         eq_(2, len(urlpatterns))
@@ -23,7 +24,8 @@ class TestURLPatternGeneration(object):
             reverse('api-root', kwargs={'format': 'json'}, urlconf=urlpatterns)
         eq_('/.json', url_path2)
 
-    def test_routes_resolution_with_default_router(self):
+    @staticmethod
+    def test_routes_resolution_with_default_router():
         routes = [Route('developers', DeveloperViewSet)]
         urlpatterns = make_urlpatterns_from_routes(routes)
 
@@ -35,7 +37,8 @@ class TestURLPatternGeneration(object):
         eq_((), view_args)
         eq_({}, view_kwargs)
 
-    def test_routes_resolution_with_custom_router(self):
+    @staticmethod
+    def test_routes_resolution_with_custom_router():
         routes = [Route('developers', DeveloperViewSet)]
         urlpatterns = make_urlpatterns_from_routes(routes, SimpleRouter)
         eq_(2, len(urlpatterns))
@@ -50,34 +53,44 @@ class TestURLPatternGeneration(object):
 
 class TestDispatch(object):
 
-    def test_parent_list(self):
+    @staticmethod
+    def test_parent_list():
         assert 0
 
-    def test_parent_detail(self):
+    @staticmethod
+    def test_parent_detail():
         assert 0
 
-    def test_non_existing_parent_detail(self):
+    @staticmethod
+    def test_non_existing_parent_detail():
         assert 0
 
-    def test_children_list(self):
+    @staticmethod
+    def test_children_list():
         assert 0
 
-    def test_child_detail(self):
+    @staticmethod
+    def test_child_detail():
         assert 0
 
-    def test_non_existing_child_detail(self):
+    @staticmethod
+    def test_non_existing_child_detail():
         assert 0
 
 
 class TestSerialization(object):
-    def test_parent_list(self):
+    @staticmethod
+    def test_parent_list():
         assert 0
 
-    def test_parent_detail(self):
+    @staticmethod
+    def test_parent_detail():
         assert 0
 
-    def test_child_list(self):
+    @staticmethod
+    def test_child_list():
         assert 0
 
-    def test_child_detail(self):
+    @staticmethod
+    def test_child_detail():
         assert 0
