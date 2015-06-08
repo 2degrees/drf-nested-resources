@@ -1,5 +1,6 @@
 from collections import OrderedDict
 
+from django.db.models.constants import LOOKUP_SEP
 from pyrecord import Record
 from rest_framework.routers import DefaultRouter
 
@@ -15,120 +16,188 @@ Resource = Record.create_type(
 
 
 NestedResource = Resource.extend_type(
-    'NestedResourceRoute',
+    'NestedResource',
     'parent_field_lookup',
     )
 
 
-_FlattenedResource = Record.create_type(
-    'FlattenedRoute',
+_RelationalRoute = Record.create_type(
+    'RelationalRoute',
     'name',
     'collection_name',
     'viewset',
-    'ancestor_lookups_by_resource_collection_name',
+    'ancestor_lookup_by_resource_name',
+    'ancestor_collection_name_by_resource_name'
     )
 
 
-def make_urlpatterns_from_resources(resources, router=None):
-    router = router or DefaultRouter()
+def make_urlpatterns_from_resources(resources, router_class=None):
+    router_class = router_class or DefaultRouter
+    nested_router_class = _create_nested_route_router(router_class, resources)
+    router = nested_router_class()
 
     flattened_resources = _flatten_nested_resources(resources)
     for flattened_resource in flattened_resources:
         url_path = _create_url_path_from_flattened_resource(flattened_resource)
-        nested_viewset = _create_nested_viewset(flattened_resource.viewset)
+        nested_viewset = _create_nested_viewset(flattened_resource)
 
         router.register(url_path, nested_viewset, flattened_resource.name)
     urlpatterns = router.urls
     return tuple(urlpatterns)
 
 
+def _create_nested_route_router(router_class, resources):
+    relational_routes = _flatten_nested_resources(resources)
+    class NestedRouteRouter(router_class):
+
+        def get_routes(self, viewset):
+            routes = []
+            for route in super(NestedRouteRouter, self).get_routes(viewset):
+                viewset_kwargs = dict(
+                    route.initkwargs,
+                    relational_routes=relational_routes,
+                    )
+                route = route._replace(initkwargs=viewset_kwargs)
+                routes.append(route)
+            return routes
+
+    return NestedRouteRouter
+
+
 def _flatten_nested_resources(
     resources,
-    ancestor_lookups_by_resource_collection_name=None,
-    parent_collection_name=None,
+    ancestor_lookup_by_resource_name=None,
+    ancestor_collection_name_by_resource_name=None,
+    parent_name=None,
     ):
-    if ancestor_lookups_by_resource_collection_name:
-        ancestor_lookups_by_resource_collection_name = \
-            ancestor_lookups_by_resource_collection_name.copy()
+    if ancestor_lookup_by_resource_name:
+        ancestor_lookup_by_resource_name = \
+            ancestor_lookup_by_resource_name.copy()
     else:
-        ancestor_lookups_by_resource_collection_name = OrderedDict()
+        ancestor_lookup_by_resource_name = OrderedDict()
 
-    flattened_resources = []
+    relational_routes = []
     for resource in resources:
         parent_lookups_by_resource_collection_name = \
-            _create_ancestor_lookups_by_resource_collection_name(
-                ancestor_lookups_by_resource_collection_name,
+            _create_ancestor_lookup_by_resource_name(
+                ancestor_lookup_by_resource_name,
                 resource,
-                parent_collection_name,
+                parent_name,
                 )
-        flattened_resource = _FlattenedResource(
+
+        ancestor_collection_name_by_resource_name = \
+            _create_ancestor_collection_name_by_resource_name(
+                ancestor_collection_name_by_resource_name,
+                resource,
+                )
+
+        flattened_resource = _RelationalRoute(
             resource.name,
             resource.collection_name,
             resource.viewset,
             parent_lookups_by_resource_collection_name,
+            ancestor_collection_name_by_resource_name,
             )
         descendant_resources = _flatten_nested_resources(
             resource.sub_resources,
             parent_lookups_by_resource_collection_name,
-            resource.collection_name,
+            ancestor_collection_name_by_resource_name,
+            resource.name,
             )
-        flattened_resources.extend([flattened_resource] + descendant_resources)
-    return flattened_resources
+        relational_routes.extend([flattened_resource] + descendant_resources)
+    return relational_routes
 
 
-def _create_ancestor_lookups_by_resource_collection_name(
-    ancestor_lookups_by_resource_collection_name,
+def _create_ancestor_lookup_by_resource_name(
+    ancestor_lookup_by_resource_name,
     resource,
     parent_name,
     ):
     if hasattr(resource, 'parent_field_lookup'):
         ancestor_lookups = OrderedDict(
-            ancestor_lookups_by_resource_collection_name,
+            ancestor_lookup_by_resource_name,
             **{parent_name: resource.parent_field_lookup}
             )
     else:
         ancestor_lookups = \
-            ancestor_lookups_by_resource_collection_name
+            ancestor_lookup_by_resource_name
     return ancestor_lookups
+
+
+def _create_ancestor_collection_name_by_resource_name(
+    ancestor_collection_name_by_resource_name,
+    resource,
+    ):
+    if ancestor_collection_name_by_resource_name:
+        ancestor_collection_name_by_resource_name = \
+            ancestor_collection_name_by_resource_name.copy()
+    else:
+        ancestor_collection_name_by_resource_name = OrderedDict()
+    ancestor_collection_name_by_resource_name[resource.name] = \
+        resource.collection_name
+    return ancestor_collection_name_by_resource_name
 
 
 def _create_url_path_from_flattened_resource(flattened_resource):
     url_parts = ''
-    ancestors_lookups = list(
-        flattened_resource.ancestor_lookups_by_resource_collection_name
-            .values()
-        )
-    collection_names = \
-        flattened_resource.ancestor_lookups_by_resource_collection_name.keys()
-    for index, collection_name in enumerate(collection_names):
-        next_ancestors_lookups = ancestors_lookups[index:]
-        url_group_name = \
-            _create_url_group_name_from_next_lookups(next_ancestors_lookups)
-        url_parts += \
-            r'{}/(?P<{}>[^/]+)/'.format(collection_name, url_group_name)
-    url_pattern = r'{}{}'.format(url_parts, flattened_resource.collection_name)
-    return url_pattern
+    ancestry = flattened_resource.ancestor_collection_name_by_resource_name
+    ancestor_count = len(ancestry)
+    for index, (resource_name, collection_name) in enumerate(ancestry.items()):
+        if index == (ancestor_count - 1):
+            url_parts += collection_name
+        else:
+            url_parts += \
+                r'{}/(?P<{}>[^/.]+)/'.format(collection_name, resource_name)
+    return url_parts
 
 
-def _create_url_group_name_from_next_lookups(next_lookups):
-    # The url group names are made using the Django lookups from the perspective
-    # of the child resource collection, so the lookups need to be reversed in
-    # order to generate them in the correct order
-    reversed_lookups = reversed(next_lookups)
-    url_group_name = '__'.join([lookup for lookup in reversed_lookups])
-    return url_group_name
+def _create_nested_viewset(flattened_resource):
 
+    route_viewset = flattened_resource.viewset
 
-def _create_nested_viewset(route_viewset):
     class NestedViewSet(route_viewset):
+
+        lookup_url_kwarg = flattened_resource.name
+
+        def __init__(self, *args, **kwargs):
+            relational_routes = kwargs.pop('relational_routes')
+            super(NestedViewSet, self).__init__(*args, **kwargs)
+            self._relational_routes = relational_routes
+
+        @property
+        def relational_routes(self):
+            return self._relational_routes
+
         def get_queryset(self):
-            old_queryset = self.queryset
+            original_queryset = self.queryset
 
-            filters = {k: v for k, v in self.kwargs.items()}
+            filters = {}
+            ancestor_lookups = []
+            resource_names_and_lookups = tuple(
+                flattened_resource.ancestor_lookup_by_resource_name.items(),
+                )
+            for resource_name, lookup in reversed(resource_names_and_lookups):
+                urlvar_value = self.kwargs.get(resource_name)
+                if not urlvar_value:
+                    continue
+
+                ancestor_lookups.append(lookup)
+                lookup = LOOKUP_SEP.join(ancestor_lookups)
+                filters[lookup] = urlvar_value
             self.queryset = self.queryset.filter(**filters)
-            get_queryset = super(route_viewset, self).get_queryset()
+            queryset = super(route_viewset, self).get_queryset()
 
-            self.queryset = old_queryset
-            return get_queryset
+            self.queryset = original_queryset
+            return queryset
+
+        def get_serializer(self, *args, **kwargs):
+            serializer = \
+                super(NestedViewSet, self).get_serializer(*args, **kwargs)
+            urlvars_by_resource_name = {}
+            for route in self.relational_routes:
+                urlvars_by_resource_name[route.name] = \
+                    route.ancestor_collection_name_by_resource_name.keys()
+            serializer.urlvars_by_resource_name = urlvars_by_resource_name
+            return serializer
+
     return NestedViewSet
-

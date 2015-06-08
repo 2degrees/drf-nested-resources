@@ -1,5 +1,5 @@
-from django.utils.decorators import classonlymethod
 from django.http.response import HttpResponse
+from django.utils.decorators import classonlymethod
 from rest_framework.serializers import ModelSerializer
 from rest_framework.viewsets import ModelViewSet
 

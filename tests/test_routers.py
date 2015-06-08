@@ -1,17 +1,15 @@
 from django.core.urlresolvers import resolve
-from django.test import Client, TransactionTestCase
+from django.test import Client
 from django.test.client import ClientHandler
 from nose.tools import eq_
 from nose.tools import ok_
 from rest_framework.reverse import reverse
 from rest_framework.routers import SimpleRouter
 
+from drf_nested_resources.routers import NestedResource
 from drf_nested_resources.routers import Resource
 from drf_nested_resources.routers import make_urlpatterns_from_resources
-from drf_nested_resources.routers import NestedResource
-from tests.django_project.app.models import Developer
-from tests.django_project.app.models import ProgrammingLanguage
-from tests.django_project.app.models import ProgrammingLanguageVersion
+from tests._testcases import FixtureTestCase
 from tests.django_project.app.views import DeveloperViewSet
 from tests.django_project.app.views import ProgrammingLanguageVersionViewSet
 from tests.django_project.app.views import ProgrammingLanguageViewSet
@@ -48,14 +46,14 @@ class TestURLPatternGeneration(object):
     @staticmethod
     def test_resources_resolution_with_custom_router():
         resources = [Resource('developer', 'developers', DeveloperViewSet)]
-        urlpatterns = make_urlpatterns_from_resources(resources, SimpleRouter())
+        urlpatterns = make_urlpatterns_from_resources(resources, SimpleRouter)
         eq_(2, len(urlpatterns))
 
         url_path1 = reverse('developer-list', urlconf=urlpatterns)
         eq_('/developers/', url_path1)
 
         url_path2 = \
-            reverse('developer-detail', kwargs={'pk': 1}, urlconf=urlpatterns)
+            reverse('developer-detail', kwargs={'developer': 1}, urlconf=urlpatterns)
         eq_('/developers/1/', url_path2)
 
     @staticmethod
@@ -78,29 +76,11 @@ class TestURLPatternGeneration(object):
         urlpatterns = make_urlpatterns_from_resources(resources)
 
         url_path = \
-            reverse('language-list', kwargs={'author': 1}, urlconf=urlpatterns)
+            reverse('language-list', kwargs={'developer': 1}, urlconf=urlpatterns)
         eq_('/developers/1/languages/', url_path)
 
 
-class TestDispatch(TransactionTestCase):
-
-    reset_sequences = True
-
-    def setUp(self):
-        super(TestDispatch, self).setUp()
-
-        self.developer1 = Developer.objects.create(name='Guido Rossum')
-        self.developer2 = Developer.objects.create(name='Larry Wall')
-        self.programming_language1 = ProgrammingLanguage.objects.create(
-            name='Python',
-            author=self.developer1,
-            )
-        self.programming_language2 = ProgrammingLanguage.objects.create(
-            name='Perl',
-            author=self.developer2,
-            )
-        self.programming_language_version = ProgrammingLanguageVersion.objects \
-            .create(name='2.7', language=self.programming_language1)
+class TestDispatch(FixtureTestCase):
 
     def test_parent_detail(self):
         resources = [Resource('developer', 'developers', DeveloperViewSet)]
@@ -110,7 +90,7 @@ class TestDispatch(TransactionTestCase):
 
         url_path = reverse(
             'developer-detail',
-            kwargs={'pk': self.developer1.pk},
+            kwargs={'developer': self.developer1.pk},
             urlconf=urlpatterns,
             )
         response = client.get(url_path)
@@ -124,7 +104,7 @@ class TestDispatch(TransactionTestCase):
 
         url_path = reverse(
             'developer-detail',
-            kwargs={'pk': self.developer2.pk + 1},
+            kwargs={'developer': self.developer2.pk + 1},
             urlconf=urlpatterns,
             )
         response = client.get(url_path)
@@ -153,8 +133,8 @@ class TestDispatch(TransactionTestCase):
         url_path = reverse(
             'language-detail',
             kwargs={
-                'author': self.developer1.pk,
-                'pk': self.programming_language1.pk},
+                'developer': self.developer1.pk,
+                'language': self.programming_language1.pk},
             urlconf=urlpatterns,
             )
         response = client.get(url_path)
@@ -183,8 +163,8 @@ class TestDispatch(TransactionTestCase):
         url_path = reverse(
             'language-detail',
             kwargs={
-                'author': self.developer1.pk,
-                'pk': self.programming_language2.pk,
+                'developer': self.developer1.pk,
+                'language': self.programming_language2.pk,
                 },
             urlconf=urlpatterns,
             )
@@ -214,8 +194,8 @@ class TestDispatch(TransactionTestCase):
         url_path = reverse(
             'language-detail',
             kwargs={
-                'author': self.developer2.pk + 1,
-                'pk': self.programming_language1.pk,
+                'developer': self.developer2.pk + 1,
+                'language': self.programming_language1.pk,
                 },
             urlconf=urlpatterns,
             )
@@ -245,8 +225,8 @@ class TestDispatch(TransactionTestCase):
         url_path = reverse(
             'language-detail',
             kwargs={
-                'author': self.developer1.pk,
-                'pk': self.programming_language2.pk + 1,
+                'developer': self.developer1.pk,
+                'language': self.programming_language2.pk + 1,
                 },
             urlconf=urlpatterns,
             )
@@ -284,9 +264,9 @@ class TestDispatch(TransactionTestCase):
         url_path = reverse(
             'version-detail',
             kwargs={
-                'language__author': self.developer1.pk,
+                'developer': self.developer1.pk,
                 'language': self.programming_language1.pk,
-                'pk': self.programming_language_version.pk,
+                'version': self.programming_language_version.pk,
                 },
             urlconf=urlpatterns,
             )
