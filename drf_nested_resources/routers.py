@@ -176,6 +176,10 @@ def _create_nested_viewset(flattened_resource):
             relational_routes = kwargs.pop('relational_routes')
             super(NestedViewSet, self).__init__(*args, **kwargs)
             self._relational_routes = relational_routes
+            self._urlvars_by_resource_name = {}
+            for route in self.relational_routes:
+                self._urlvars_by_resource_name[route.name] = \
+                    route.ancestor_collection_name_by_resource_name.keys()
 
         @property
         def relational_routes(self):
@@ -203,14 +207,13 @@ def _create_nested_viewset(flattened_resource):
             self.queryset = original_queryset
             return queryset
 
-        def get_serializer(self, *args, **kwargs):
-            serializer = \
-                super(NestedViewSet, self).get_serializer(*args, **kwargs)
-            urlvars_by_resource_name = {}
-            for route in self.relational_routes:
-                urlvars_by_resource_name[route.name] = \
-                    route.ancestor_collection_name_by_resource_name.keys()
-            serializer.urlvars_by_resource_name = urlvars_by_resource_name
-            return serializer
+        def initialize_request(self, request, *args, **kwargs):
+            request = super(NestedViewSet, self).initialize_request(
+                request,
+                *args,
+                **kwargs
+                )
+            request.urlvars_by_resource_name = self._urlvars_by_resource_name
+            return request
 
     return NestedViewSet

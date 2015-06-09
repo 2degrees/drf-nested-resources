@@ -208,18 +208,13 @@ class TestRelatedLinkedField(FixtureTestCase):
         destination_view_object,
         ):
         drf_request = _make_drf_request(django_request)
-
-        urlvars_by_resource_name = {
+        drf_request.urlvars_by_resource_name = {
             'version': ('version', 'language', 'developer'),
             'language': ('language', 'developer'),
             'developer': ('developer',),
             }
 
-        field = HyperlinkedNestedRelatedField(
-            source_view_name,
-            read_only=True,
-            urlvars_by_resource_name=urlvars_by_resource_name,
-            )
+        field = HyperlinkedNestedRelatedField(source_view_name, read_only=True)
         field.reverse = partial(reverse, urlconf=self.urlpatterns)
 
         url = field.get_url(
