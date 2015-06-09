@@ -59,22 +59,21 @@ class TestURLPatternGeneration(object):
 
     @staticmethod
     def test_resources_resolution_with_hyphenated_resource_name():
-        resources = [Resource('dev-eloper', 'developers', DeveloperViewSet)]
-        urlpatterns = make_urlpatterns_from_resources(resources, SimpleRouter)
-        eq_(2, len(urlpatterns))
+        resources = [Resource('software-developer', 'developers', DeveloperViewSet)]
+        urlpatterns = make_urlpatterns_from_resources(resources)
 
-        url_path1 = reverse('dev_eloper-list', urlconf=urlpatterns)
+        url_path1 = reverse('software_developer-list', urlconf=urlpatterns)
         eq_('/developers/', url_path1)
 
         url_path2 = \
-            reverse('dev_eloper-detail', kwargs={'dev_eloper': 1}, urlconf=urlpatterns)
+            reverse('software_developer-detail', kwargs={'software_developer': 1}, urlconf=urlpatterns)
         eq_('/developers/1/', url_path2)
 
     @staticmethod
     def test_resources_resolution_with_invalid_resource_name():
-        resources = [Resource('2015developer-', 'developers', DeveloperViewSet)]
+        resources = [Resource('2015developer', 'developers', DeveloperViewSet)]
         with assert_raises(AssertionError):
-            make_urlpatterns_from_resources(resources, SimpleRouter)
+            make_urlpatterns_from_resources(resources)
 
     @staticmethod
     def test_nested_resources_resolution():
