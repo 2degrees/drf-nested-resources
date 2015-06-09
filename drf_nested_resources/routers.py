@@ -1,3 +1,5 @@
+from re import compile as compile_regex
+from re import IGNORECASE
 from collections import OrderedDict
 
 from django.db.models.constants import LOOKUP_SEP
@@ -31,6 +33,9 @@ _RelationalRoute = Record.create_type(
     )
 
 
+_VALID_PYTHON_IDENTIFIER_RE = compile_regex(r"^[a-z_]\w*$", IGNORECASE)
+
+
 def make_urlpatterns_from_resources(resources, router_class=None):
     router_class = router_class or DefaultRouter
     nested_router_class = _create_nested_route_router(router_class, resources)
@@ -38,12 +43,20 @@ def make_urlpatterns_from_resources(resources, router_class=None):
 
     flattened_resources = _flatten_nested_resources(resources)
     for flattened_resource in flattened_resources:
+        flattened_resource.name = _format_resource_name(flattened_resource.name)
+
         url_path = _create_url_path_from_flattened_resource(flattened_resource)
         nested_viewset = _create_nested_viewset(flattened_resource)
 
         router.register(url_path, nested_viewset, flattened_resource.name)
     urlpatterns = router.urls
     return tuple(urlpatterns)
+
+
+def _format_resource_name(name):
+    formatted_name = name.replace('-', '_')
+    assert bool(_VALID_PYTHON_IDENTIFIER_RE.match(formatted_name))
+    return formatted_name
 
 
 def _create_nested_route_router(router_class, resources):

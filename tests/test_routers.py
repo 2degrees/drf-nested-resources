@@ -1,6 +1,7 @@
 from django.core.urlresolvers import resolve
 from django.test import Client
 from django.test.client import ClientHandler
+from nose.tools import assert_raises
 from nose.tools import eq_
 from nose.tools import ok_
 from rest_framework.reverse import reverse
@@ -55,6 +56,25 @@ class TestURLPatternGeneration(object):
         url_path2 = \
             reverse('developer-detail', kwargs={'developer': 1}, urlconf=urlpatterns)
         eq_('/developers/1/', url_path2)
+
+    @staticmethod
+    def test_resources_resolution_with_hyphenated_resource_name():
+        resources = [Resource('dev-eloper', 'developers', DeveloperViewSet)]
+        urlpatterns = make_urlpatterns_from_resources(resources, SimpleRouter)
+        eq_(2, len(urlpatterns))
+
+        url_path1 = reverse('dev_eloper-list', urlconf=urlpatterns)
+        eq_('/developers/', url_path1)
+
+        url_path2 = \
+            reverse('dev_eloper-detail', kwargs={'dev_eloper': 1}, urlconf=urlpatterns)
+        eq_('/developers/1/', url_path2)
+
+    @staticmethod
+    def test_resources_resolution_with_invalid_resource_name():
+        resources = [Resource('2015developer-', 'developers', DeveloperViewSet)]
+        with assert_raises(AssertionError):
+            make_urlpatterns_from_resources(resources, SimpleRouter)
 
     @staticmethod
     def test_nested_resources_resolution():
