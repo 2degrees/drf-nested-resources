@@ -1,0 +1,4 @@
+DETAIL_VIEW_NAME_SUFFIX = '-detail'
+
+
+LIST_VIEW_NAME_SUFFIX = '-list'

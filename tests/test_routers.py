@@ -111,9 +111,32 @@ class TestURLPatternGeneration(object):
 
 class TestDispatch(FixtureTestCase):
 
+    _RESOURCES = [
+        Resource(
+            'developer',
+            'developers',
+            DeveloperViewSet,
+            [
+                NestedResource(
+                    'language',
+                    'languages',
+                    ProgrammingLanguageViewSet,
+                    [
+                        NestedResource(
+                            'version',
+                            'versions',
+                            ProgrammingLanguageVersionViewSet,
+                            parent_field_lookup='language',
+                            ),
+                        ],
+                    parent_field_lookup='author',
+                    ),
+                ],
+            ),
+        ]
+
     def test_parent_detail(self):
-        resources = [Resource('developer', 'developers', DeveloperViewSet)]
-        urlpatterns = make_urlpatterns_from_resources(resources)
+        urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
 
         client = _TestClient(urlpatterns)
 
@@ -126,8 +149,7 @@ class TestDispatch(FixtureTestCase):
         eq_(200, response.status_code)
 
     def test_non_existing_parent_detail(self):
-        resources = [Resource('developer', 'developers', DeveloperViewSet)]
-        urlpatterns = make_urlpatterns_from_resources(resources)
+        urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
 
         client = _TestClient(urlpatterns)
 
@@ -140,22 +162,7 @@ class TestDispatch(FixtureTestCase):
         eq_(404, response.status_code)
 
     def test_child_detail(self):
-        resources = [
-            Resource(
-                'developer',
-                'developers',
-                DeveloperViewSet,
-                [
-                    NestedResource(
-                        'language',
-                        'languages',
-                        ProgrammingLanguageViewSet,
-                        parent_field_lookup='author',
-                        ),
-                    ],
-                ),
-            ]
-        urlpatterns = make_urlpatterns_from_resources(resources)
+        urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
 
         client = _TestClient(urlpatterns)
 
@@ -170,22 +177,7 @@ class TestDispatch(FixtureTestCase):
         eq_(200, response.status_code)
 
     def test_child_detail_with_wrong_parent(self):
-        resources = [
-            Resource(
-                'developer',
-                'developers',
-                DeveloperViewSet,
-                [
-                    NestedResource(
-                        'language',
-                        'languages',
-                        ProgrammingLanguageViewSet,
-                        parent_field_lookup='author',
-                        ),
-                ],
-            ),
-        ]
-        urlpatterns = make_urlpatterns_from_resources(resources)
+        urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
 
         client = _TestClient(urlpatterns)
 
@@ -201,22 +193,7 @@ class TestDispatch(FixtureTestCase):
         eq_(404, response.status_code)
 
     def test_child_detail_with_non_existing_parent(self):
-        resources = [
-            Resource(
-                'developer',
-                'developers',
-                DeveloperViewSet,
-                [
-                    NestedResource(
-                        'language',
-                        'languages',
-                        ProgrammingLanguageViewSet,
-                        parent_field_lookup='author',
-                        ),
-                ],
-            ),
-        ]
-        urlpatterns = make_urlpatterns_from_resources(resources)
+        urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
 
         client = _TestClient(urlpatterns)
 
@@ -232,22 +209,7 @@ class TestDispatch(FixtureTestCase):
         eq_(404, response.status_code)
 
     def test_non_existing_child_detail(self):
-        resources = [
-            Resource(
-                'developer',
-                'developers',
-                DeveloperViewSet,
-                [
-                    NestedResource(
-                        'language',
-                        'languages',
-                        ProgrammingLanguageViewSet,
-                        parent_field_lookup='author',
-                        ),
-                ],
-            ),
-        ]
-        urlpatterns = make_urlpatterns_from_resources(resources)
+        urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
 
         client = _TestClient(urlpatterns)
 
@@ -263,30 +225,7 @@ class TestDispatch(FixtureTestCase):
         eq_(404, response.status_code)
 
     def test_grand_child_detail(self):
-        resources = [
-            Resource(
-                'developer',
-                'developers',
-                DeveloperViewSet,
-                [
-                    NestedResource(
-                        'language',
-                        'languages',
-                        ProgrammingLanguageViewSet,
-                        [
-                            NestedResource(
-                                'version',
-                                'versions',
-                                ProgrammingLanguageVersionViewSet,
-                                parent_field_lookup='language',
-                                ),
-                            ],
-                        parent_field_lookup='author',
-                        ),
-                    ],
-                ),
-            ]
-        urlpatterns = make_urlpatterns_from_resources(resources)
+        urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
 
         client = _TestClient(urlpatterns)
 

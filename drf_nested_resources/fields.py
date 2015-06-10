@@ -2,6 +2,9 @@ from rest_framework.relations import HyperlinkedIdentityField
 from rest_framework.relations import HyperlinkedRelatedField
 from rest_framework.serializers import HyperlinkedModelSerializer
 
+from drf_nested_resources import DETAIL_VIEW_NAME_SUFFIX
+from drf_nested_resources import LIST_VIEW_NAME_SUFFIX
+
 
 class HyperlinkedNestedRelatedField(HyperlinkedRelatedField):
 
@@ -19,7 +22,6 @@ class HyperlinkedNestedRelatedField(HyperlinkedRelatedField):
         current_view_kwargs = request.parser_context['kwargs']
 
         view_urlvars = self.urlvars_by_view_name[view_name]
-
         kwargs = {}
         for resource_name in view_urlvars:
             kwargs[resource_name] = \
@@ -75,7 +77,23 @@ class HyperlinkedNestedModelSerializer(HyperlinkedModelSerializer):
                 field_name,
                 model_class,
                 )
-        field_kwargs['view_name'] = self.Meta.resource_name + '-detail'
+        field_kwargs['view_name'] = \
+            self.Meta.resource_name + DETAIL_VIEW_NAME_SUFFIX
         field_kwargs['urlvars_by_view_name'] = self.Meta.urlvars_by_view_name
 
+        return field_class, field_kwargs
+
+    def build_relational_field(self, field_name, relation_info):
+        super_ = super(HyperlinkedNestedModelSerializer, self)
+        field_class, field_kwargs = \
+            super_.build_relational_field(field_name, relation_info)
+
+        if relation_info.to_many:
+            view_name_suffix = LIST_VIEW_NAME_SUFFIX
+        else:
+            view_name_suffix = DETAIL_VIEW_NAME_SUFFIX
+
+        view_name = self.Meta.view_names_by_relationship[field_name]
+        field_kwargs['view_name'] = view_name + view_name_suffix
+        field_kwargs['urlvars_by_view_name'] = self.Meta.urlvars_by_view_name
         return field_class, field_kwargs
