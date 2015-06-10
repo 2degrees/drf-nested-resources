@@ -147,7 +147,7 @@ def _populate_resource_relationships(
             parent_relationships = relationships_by_resource_name[parent_name]
             reverse_relationship_name = _get_reverse_relationship_name(
                 parent_field_lookup,
-                resource.viewset,
+                resource.viewset.queryset.model,
                 )
             parent_relationships[reverse_relationship_name] = resource.name
 
@@ -158,11 +158,18 @@ def _populate_resource_relationships(
             )
 
 
-def _get_reverse_relationship_name(parent_field_lookup, viewset):
-    model = viewset.queryset.model
+def _get_reverse_relationship_name(parent_field_lookup, model):
     model_options = model._meta
-    field = model_options.get_field_by_name(parent_field_lookup)[0]
-    reverse_relationship_name = field.rel.name
+    direct_parent_lookup, _, indirect_parent_lookups = \
+        parent_field_lookup.partition(LOOKUP_SEP)
+    field = model_options.get_field_by_name(direct_parent_lookup)[0]
+    if indirect_parent_lookups:
+        reverse_relationship_name = _get_reverse_relationship_name(
+            indirect_parent_lookups,
+            field.rel.model,
+            )
+    else:
+        reverse_relationship_name = field.rel.name
     return reverse_relationship_name
 
 

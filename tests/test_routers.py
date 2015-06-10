@@ -12,6 +12,7 @@ from drf_nested_resources.routers import Resource
 from drf_nested_resources.routers import make_urlpatterns_from_resources
 from tests._testcases import FixtureTestCase
 from tests.django_project.app.views import DeveloperViewSet
+from tests.django_project.app.views import DeveloperViewSet2
 from tests.django_project.app.views import ProgrammingLanguageVersionViewSet
 from tests.django_project.app.views import ProgrammingLanguageViewSet
 
@@ -234,6 +235,37 @@ class TestDispatch(FixtureTestCase):
             kwargs={
                 'developer': self.developer1.pk,
                 'language': self.programming_language1.pk,
+                'version': self.programming_language_version.pk,
+                },
+            urlconf=urlpatterns,
+            )
+        response = client.get(url_path)
+        eq_(200, response.status_code)
+
+    def test_indirect_relation_detail(self):
+        resources = [
+        Resource(
+            'developer',
+            'developers',
+            DeveloperViewSet2,
+            [
+                NestedResource(
+                    'version',
+                    'versions',
+                    ProgrammingLanguageVersionViewSet,
+                    parent_field_lookup='language__author',
+                    ),
+                ],
+            ),
+        ]
+        urlpatterns = make_urlpatterns_from_resources(resources)
+
+        client = _TestClient(urlpatterns)
+
+        url_path = reverse(
+            'version-detail',
+            kwargs={
+                'developer': self.developer1.pk,
                 'version': self.programming_language_version.pk,
                 },
             urlconf=urlpatterns,

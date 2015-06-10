@@ -38,6 +38,21 @@ class DeveloperViewSet(ModelViewSet):
         return view
 
 
+class _DeveloperSerializer2(HyperlinkedNestedModelSerializer):
+
+    class Meta(object):
+
+        model = Developer
+
+        fields = ('url', 'name')
+
+
+class DeveloperViewSet2(DeveloperViewSet):
+
+
+    serializer_class = _DeveloperSerializer2
+
+
 class _ProgrammingLanguageSerializer(HyperlinkedNestedModelSerializer):
 
     class Meta(object):
