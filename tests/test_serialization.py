@@ -11,7 +11,6 @@ from drf_nested_resources.fields import HyperlinkedNestedIdentityField
 from drf_nested_resources.fields import HyperlinkedNestedRelatedField
 from drf_nested_resources.routers import NestedResource
 from drf_nested_resources.routers import Resource
-from drf_nested_resources.routers import _flatten_nested_resources
 from drf_nested_resources.routers import make_urlpatterns_from_resources
 from tests._testcases import FixtureTestCase
 from tests.django_project.app.models import ProgrammingLanguageVersion
@@ -26,9 +25,12 @@ class TestIdentityField(object):
 
     _DESTINATION_VIEW_NAME = 'child'
 
+    _URLVARS_BY_RESOURCE_NAME = \
+        {'children': ('parent', ), 'child': ('parent', 'child')}
+
     def setup(self):
         self._django_request = \
-            _make_django_request(self._SOURCE_VIEW_NAME, {'parent_id': 'foo'})
+            _make_django_request(self._SOURCE_VIEW_NAME, {'parent': 'foo'})
 
     def test_url_generation(self):
         url = self._make_url_with_kwargs_via_field('foo')
@@ -47,7 +49,10 @@ class TestIdentityField(object):
     def _make_url_with_kwargs_via_field(self, pk, format_=None):
         object_ = PKOnlyObject(pk)
         drf_request = _make_drf_request(self._django_request)
-        field = HyperlinkedNestedIdentityField(self._SOURCE_VIEW_NAME)
+        field = HyperlinkedNestedIdentityField(
+            self._SOURCE_VIEW_NAME,
+            self._URLVARS_BY_RESOURCE_NAME,
+            )
         url = field.get_url(
             object_,
             self._DESTINATION_VIEW_NAME,
@@ -58,11 +63,12 @@ class TestIdentityField(object):
 
     def _make_url_with_kwargs(self, pk, format_=None):
         source_view_kwargs = self._django_request.resolver_match[2]
-        destination_view_kwargs = dict(source_view_kwargs, pk=pk)
-        if format_:
-            destination_view_kwargs['format'] = format_
-        url_path = \
-            reverse(self._DESTINATION_VIEW_NAME, kwargs=destination_view_kwargs)
+        destination_view_kwargs = dict(source_view_kwargs, child=pk)
+        url_path = reverse(
+            self._DESTINATION_VIEW_NAME,
+            kwargs=destination_view_kwargs,
+            format=format_,
+            )
         url = self._django_request.build_absolute_uri(url_path)
         return url
 
