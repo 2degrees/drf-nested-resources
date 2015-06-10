@@ -5,21 +5,20 @@ from rest_framework.serializers import HyperlinkedModelSerializer
 
 class HyperlinkedNestedRelatedField(HyperlinkedRelatedField):
 
-    def __init__(self, view_name=None, urlvars_by_resource_name=None, **kwargs):
+    def __init__(self, view_name=None, urlvars_by_view_name=None, **kwargs):
         super(HyperlinkedNestedRelatedField, self).__init__(
             view_name=view_name,
             **kwargs
             )
-        assert urlvars_by_resource_name, \
-            'urlvars_by_resource_name cannot be empty!'
-        self.urlvars_by_resource_name = urlvars_by_resource_name
+        assert urlvars_by_view_name, 'urlvars_by_view_name cannot be empty!'
+        self.urlvars_by_view_name = urlvars_by_view_name
 
     def get_url(self, obj, view_name, request, format):
         if obj.pk is None:
             return None
         current_view_kwargs = request.parser_context['kwargs']
 
-        view_urlvars = request.urlvars_by_resource_name[view_name]
+        view_urlvars = self.urlvars_by_view_name[view_name]
 
         kwargs = {}
         for resource_name in view_urlvars:
@@ -36,21 +35,20 @@ class HyperlinkedNestedRelatedField(HyperlinkedRelatedField):
 
 class HyperlinkedNestedIdentityField(HyperlinkedIdentityField):
 
-    def __init__(self, view_name=None, urlvars_by_resource_name=None, **kwargs):
+    def __init__(self, view_name=None, urlvars_by_view_name=None, **kwargs):
         super(HyperlinkedNestedIdentityField, self).__init__(
             view_name=view_name,
             **kwargs
             )
-        assert urlvars_by_resource_name, \
-            'urlvars_by_resource_name cannot be empty!'
-        self.urlvars_by_resource_name = urlvars_by_resource_name
+        assert urlvars_by_view_name, 'urlvars_by_view_name cannot be empty!'
+        self.urlvars_by_view_name = urlvars_by_view_name
 
     def get_url(self, obj, view_name, request, format):
         if obj.pk is None:
             return None
 
         current_view_kwargs = request.parser_context['kwargs']
-        view_urlvars = self.urlvars_by_resource_name[view_name]
+        view_urlvars = self.urlvars_by_view_name[view_name]
         kwargs = {}
         for resource_name in view_urlvars:
             kwargs[resource_name] = \
@@ -78,7 +76,6 @@ class HyperlinkedNestedModelSerializer(HyperlinkedModelSerializer):
                 model_class,
                 )
         field_kwargs['view_name'] = self.Meta.resource_name + '-detail'
-        field_kwargs['urlvars_by_resource_name'] = \
-            self.Meta.urlvars_by_resource_name
+        field_kwargs['urlvars_by_view_name'] = self.Meta.urlvars_by_view_name
 
         return field_class, field_kwargs

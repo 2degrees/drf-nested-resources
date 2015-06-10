@@ -176,7 +176,7 @@ def _create_nested_viewset(flattened_resource):
             relational_routes = kwargs.pop('relational_routes')
             super(NestedViewSet, self).__init__(*args, **kwargs)
             self._relational_routes = relational_routes
-            urlvars_by_resource_name = {}
+            urlvars_by_view_name = {}
             for route in self.relational_routes:
                 detail_route_name = route.name + '-detail'
                 list_route_name = route.name + '-list'
@@ -184,10 +184,10 @@ def _create_nested_viewset(flattened_resource):
                     route.ancestor_collection_name_by_resource_name.keys(),
                     )
 
-                urlvars_by_resource_name[list_route_name] = \
+                urlvars_by_view_name[list_route_name] = \
                     ancestor_urlvars[:-1]
-                urlvars_by_resource_name[detail_route_name] = ancestor_urlvars
-            self._urlvars_by_resource_name = urlvars_by_resource_name
+                urlvars_by_view_name[detail_route_name] = ancestor_urlvars
+            self._urlvars_by_view_name = urlvars_by_view_name
 
         @property
         def relational_routes(self):
@@ -200,7 +200,7 @@ def _create_nested_viewset(flattened_resource):
             class NestedSerializer(base_serializer_class):
 
                 class Meta(base_serializer_class.Meta):
-                    urlvars_by_resource_name = self._urlvars_by_resource_name
+                    urlvars_by_view_name = self._urlvars_by_view_name
 
                     resource_name = flattened_resource.name
 
