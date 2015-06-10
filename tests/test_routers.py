@@ -53,20 +53,27 @@ class TestURLPatternGeneration(object):
         url_path1 = reverse('developer-list', urlconf=urlpatterns)
         eq_('/developers/', url_path1)
 
-        url_path2 = \
-            reverse('developer-detail', kwargs={'developer': 1}, urlconf=urlpatterns)
+        url_path2 = reverse(
+            'developer-detail',
+            kwargs={'developer': 1},
+            urlconf=urlpatterns,
+            )
         eq_('/developers/1/', url_path2)
 
     @staticmethod
     def test_resources_resolution_with_hyphenated_resource_name():
-        resources = [Resource('software-developer', 'developers', DeveloperViewSet)]
+        resources = \
+            [Resource('software-developer', 'developers', DeveloperViewSet)]
         urlpatterns = make_urlpatterns_from_resources(resources)
 
         url_path1 = reverse('software_developer-list', urlconf=urlpatterns)
         eq_('/developers/', url_path1)
 
-        url_path2 = \
-            reverse('software_developer-detail', kwargs={'software_developer': 1}, urlconf=urlpatterns)
+        url_path2 = reverse(
+            'software_developer-detail',
+            kwargs={'software_developer': 1},
+            urlconf=urlpatterns,
+            )
         eq_('/developers/1/', url_path2)
 
     @staticmethod
@@ -94,8 +101,11 @@ class TestURLPatternGeneration(object):
         ]
         urlpatterns = make_urlpatterns_from_resources(resources)
 
-        url_path = \
-            reverse('language-list', kwargs={'developer': 1}, urlconf=urlpatterns)
+        url_path = reverse(
+            'language-list',
+            kwargs={'developer': 1},
+            urlconf=urlpatterns,
+            )
         eq_('/developers/1/languages/', url_path)
 
 
