@@ -3,6 +3,8 @@ from django.utils.decorators import classonlymethod
 from rest_framework.serializers import ModelSerializer
 from rest_framework.viewsets import ModelViewSet
 
+from drf_nested_resources.fields import HyperlinkedNestedModelSerializer
+
 from tests.django_project.app.models import Developer
 from tests.django_project.app.models import ProgrammingLanguage
 from tests.django_project.app.models import ProgrammingLanguageVersion
@@ -13,13 +15,13 @@ def view(request, arg1, arg2):
     return response
 
 
-class _DeveloperSerializer(ModelSerializer):
+class _DeveloperSerializer(HyperlinkedNestedModelSerializer):
 
     class Meta(object):
 
         model = Developer
 
-        fields = ('name', )
+        fields = ('url', 'name')
 
 
 class DeveloperViewSet(ModelViewSet):
@@ -36,13 +38,13 @@ class DeveloperViewSet(ModelViewSet):
         return view
 
 
-class _ProgrammingLanguageSerializer(ModelSerializer):
+class _ProgrammingLanguageSerializer(HyperlinkedNestedModelSerializer):
 
     class Meta(object):
 
         model = ProgrammingLanguage
 
-        fields = ('name', )
+        fields = ('url', 'name')
 
 
 class ProgrammingLanguageViewSet(ModelViewSet):
@@ -52,13 +54,13 @@ class ProgrammingLanguageViewSet(ModelViewSet):
     serializer_class = _ProgrammingLanguageSerializer
 
 
-class _ProgrammingLanguageVersionSerializer(ModelSerializer):
+class _ProgrammingLanguageVersionSerializer(HyperlinkedNestedModelSerializer):
 
     class Meta(object):
 
         model = ProgrammingLanguageVersion
 
-        fields = ('name', )
+        fields = ('url', 'name')
 
 
 class ProgrammingLanguageVersionViewSet(ModelViewSet):

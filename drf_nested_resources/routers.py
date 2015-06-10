@@ -1,6 +1,6 @@
-from re import compile as compile_regex
-from re import IGNORECASE
 from collections import OrderedDict
+from re import IGNORECASE
+from re import compile as compile_regex
 
 from django.db.models.constants import LOOKUP_SEP
 from pyrecord import Record
@@ -176,14 +176,35 @@ def _create_nested_viewset(flattened_resource):
             relational_routes = kwargs.pop('relational_routes')
             super(NestedViewSet, self).__init__(*args, **kwargs)
             self._relational_routes = relational_routes
-            self._urlvars_by_resource_name = {}
+            urlvars_by_resource_name = {}
             for route in self.relational_routes:
-                self._urlvars_by_resource_name[route.name] = \
-                    route.ancestor_collection_name_by_resource_name.keys()
+                detail_route_name = route.name + '-detail'
+                list_route_name = route.name + '-list'
+                ancestor_urlvars = tuple(
+                    route.ancestor_collection_name_by_resource_name.keys(),
+                    )
+
+                urlvars_by_resource_name[list_route_name] = \
+                    ancestor_urlvars[:-1]
+                urlvars_by_resource_name[detail_route_name] = ancestor_urlvars
+            self._urlvars_by_resource_name = urlvars_by_resource_name
 
         @property
         def relational_routes(self):
             return self._relational_routes
+
+        def get_serializer_class(self):
+            base_serializer_class = \
+                super(NestedViewSet, self).get_serializer_class()
+
+            class NestedSerializer(base_serializer_class):
+
+                class Meta(base_serializer_class.Meta):
+                    urlvars_by_resource_name = self._urlvars_by_resource_name
+
+                    resource_name = flattened_resource.name
+
+            return NestedSerializer
 
         def get_queryset(self):
             original_queryset = self.queryset
@@ -206,14 +227,5 @@ def _create_nested_viewset(flattened_resource):
 
             self.queryset = original_queryset
             return queryset
-
-        def initialize_request(self, request, *args, **kwargs):
-            request = super(NestedViewSet, self).initialize_request(
-                request,
-                *args,
-                **kwargs
-                )
-            request.urlvars_by_resource_name = self._urlvars_by_resource_name
-            return request
 
     return NestedViewSet
