@@ -1,4 +1,3 @@
-from django.db.models.base import Model
 from rest_framework.relations import HyperlinkedIdentityField
 from rest_framework.relations import HyperlinkedRelatedField
 from rest_framework.serializers import HyperlinkedModelSerializer
@@ -18,7 +17,14 @@ class HyperlinkedNestedRelatedField(HyperlinkedRelatedField):
         self.urlvars_by_view_name = urlvars_by_view_name
 
     def get_url(self, obj, view_name, request, format):
-        if isinstance(obj, Model) and obj.pk is None:
+        if hasattr(obj, 'pk'):
+            pk = obj.pk
+        elif hasattr(obj, 'instance'):
+            pk = obj.instance.pk
+        else:
+            assert False, 'unsupported type for obj {!r}'.format(type(obj))
+
+        if pk is None:
             return None
 
         current_view_kwargs = request.parser_context['kwargs']
@@ -26,11 +32,7 @@ class HyperlinkedNestedRelatedField(HyperlinkedRelatedField):
         view_urlvars = self.urlvars_by_view_name[view_name]
         kwargs = {}
         for resource_name in view_urlvars:
-            try:
-                urlvar_value = current_view_kwargs[resource_name]
-            except KeyError:
-                urlvar_value = obj.pk
-            kwargs[resource_name] = urlvar_value
+            kwargs[resource_name] = current_view_kwargs.get(resource_name, pk)
 
         url = self.reverse(
             view_name,

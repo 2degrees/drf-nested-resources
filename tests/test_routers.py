@@ -169,6 +169,15 @@ class TestDispatch(FixtureTestCase):
         ok_(languages_url.endswith(expected_languages_url))
         eq_(200, response.status_code)
 
+    def test_parent_list(self):
+        urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
+
+        client = _TestClient(urlpatterns)
+
+        url_path = reverse('developer-list', urlconf=urlpatterns)
+        response = client.get(url_path)
+        eq_(200, response.status_code)
+
     def test_non_existing_parent_detail(self):
         urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
 
