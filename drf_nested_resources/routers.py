@@ -76,6 +76,7 @@ def _format_resource_name(name):
 
 def _create_nested_route_router(router_class, resources):
     relational_routes = _flatten_nested_resources(resources)
+
     class NestedRouteRouter(router_class):
 
         def get_routes(self, viewset):
@@ -104,6 +105,12 @@ def _flatten_nested_resources(
     else:
         ancestor_lookup_by_resource_name = OrderedDict()
 
+    if ancestor_collection_name_by_resource_name:
+        ancestor_collection_name_by_resource_name = \
+            ancestor_collection_name_by_resource_name.copy()
+    else:
+        ancestor_collection_name_by_resource_name = OrderedDict()
+
     relational_routes = []
     for resource in resources:
         parent_lookups_by_resource_collection_name = \
@@ -113,9 +120,11 @@ def _flatten_nested_resources(
                 parent_name,
                 )
 
-        ancestor_collection_name_by_resource_name = \
+        resource_ancestor_collection_name_by_resource_name = \
+            ancestor_collection_name_by_resource_name.copy()
+        resource_ancestor_collection_name_by_resource_name = \
             _create_ancestor_collection_name_by_resource_name(
-                ancestor_collection_name_by_resource_name,
+                resource_ancestor_collection_name_by_resource_name,
                 resource,
                 )
 
@@ -124,12 +133,12 @@ def _flatten_nested_resources(
             resource.collection_name,
             resource.viewset,
             parent_lookups_by_resource_collection_name,
-            ancestor_collection_name_by_resource_name,
+            resource_ancestor_collection_name_by_resource_name,
             )
         descendant_resources = _flatten_nested_resources(
             resource.sub_resources,
             parent_lookups_by_resource_collection_name,
-            ancestor_collection_name_by_resource_name,
+            resource_ancestor_collection_name_by_resource_name,
             resource.name,
             )
         relational_routes.extend([flattened_resource] + descendant_resources)
@@ -205,11 +214,6 @@ def _create_ancestor_collection_name_by_resource_name(
     ancestor_collection_name_by_resource_name,
     resource,
     ):
-    if ancestor_collection_name_by_resource_name:
-        ancestor_collection_name_by_resource_name = \
-            ancestor_collection_name_by_resource_name.copy()
-    else:
-        ancestor_collection_name_by_resource_name = OrderedDict()
     ancestor_collection_name_by_resource_name[resource.name] = \
         resource.collection_name
     return ancestor_collection_name_by_resource_name

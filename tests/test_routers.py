@@ -130,6 +130,12 @@ class TestDispatch(FixtureTestCase):
                     ProgrammingLanguageViewSet,
                     [
                         NestedResource(
+                            'visit',
+                            'visits',
+                            WebsiteVisitViewSet,
+                            parent_field_lookup='website__language',
+                            ),
+                        NestedResource(
                             'version',
                             'versions',
                             ProgrammingLanguageVersionViewSet,
