@@ -329,7 +329,7 @@ class TestDispatch(FixtureTestCase):
                 [
                     NestedResource(
                         'host',
-                        'hostss',
+                        'hosts',
                         WebsiteHostViewSet,
                         parent_field_lookup='websites',
                         ),
@@ -342,6 +342,43 @@ class TestDispatch(FixtureTestCase):
 
         url_path = reverse(
             'host-detail',
+            kwargs={
+                'website': website.pk,
+                'host': website_host.pk,
+                },
+            urlconf=urlpatterns,
+            )
+        response = client.get(url_path)
+        eq_(200, response.status_code)
+
+    def test_reverse_many_to_many_relationships(self):
+        website = Website.objects.create(base_url='http://python.org/')
+        self.programming_language1.website = website
+        self.programming_language1.save()
+        website_host = WebsiteHost.objects.create(name='AWS')
+        website.hosts.add(website_host)
+
+        resources = [
+            Resource(
+                'host',
+                'hosts',
+                WebsiteHostViewSet,
+                [
+                    NestedResource(
+                        'website',
+                        'websites',
+                        WebsiteViewSet,
+                        parent_field_lookup='hosts',
+                        ),
+                    ],
+                ),
+            ]
+        urlpatterns = make_urlpatterns_from_resources(resources)
+
+        client = _TestClient(urlpatterns)
+
+        url_path = reverse(
+            'website-detail',
             kwargs={
                 'website': website.pk,
                 'host': website_host.pk,

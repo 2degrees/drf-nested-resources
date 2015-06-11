@@ -5,6 +5,7 @@ from re import compile as compile_regex
 
 from django.db.models.constants import LOOKUP_SEP
 from django.db.models.fields.related import ForeignKey
+from django.db.models.fields.related import ManyToManyField
 from django.db.models.fields.related import ManyToManyRel
 from django.db.models.fields.related import OneToOneRel
 from pyrecord import Record
@@ -169,7 +170,7 @@ def _get_reverse_relationship_name(parent_field_lookup, model):
 
     if isinstance(field, (OneToOneRel, ManyToManyRel)):
         relationship = field
-    elif isinstance(field, ForeignKey):
+    elif isinstance(field, (ForeignKey, ManyToManyField)):
         relationship = field.rel
     else:
         assert False, 'field of type {!r} is not supported'.format(type(field))
