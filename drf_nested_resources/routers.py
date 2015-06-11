@@ -4,6 +4,8 @@ from re import IGNORECASE
 from re import compile as compile_regex
 
 from django.db.models.constants import LOOKUP_SEP
+from django.db.models.fields.related import ForeignKey
+from django.db.models.fields.related import ManyToManyRel
 from django.db.models.fields.related import OneToOneRel
 from pyrecord import Record
 from rest_framework.routers import DefaultRouter
@@ -165,10 +167,12 @@ def _get_reverse_relationship_name(parent_field_lookup, model):
         parent_field_lookup.partition(LOOKUP_SEP)
     field = model_options.get_field_by_name(direct_parent_lookup)[0]
 
-    if isinstance(field, OneToOneRel):
+    if isinstance(field, (OneToOneRel, ManyToManyRel)):
         relationship = field
-    else:
+    elif isinstance(field, ForeignKey):
         relationship = field.rel
+    else:
+        assert False, 'field of type {!r} is not supported'.format(type(field))
 
     if indirect_parent_lookups:
         reverse_relationship_name = _get_reverse_relationship_name(

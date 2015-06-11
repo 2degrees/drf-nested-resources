@@ -12,11 +12,14 @@ from drf_nested_resources.routers import Resource
 from drf_nested_resources.routers import make_urlpatterns_from_resources
 from tests._testcases import FixtureTestCase
 from tests.django_project.app.models import Website
+from tests.django_project.app.models import WebsiteHost
 from tests.django_project.app.models import WebsiteVisit
 from tests.django_project.app.views import DeveloperViewSet
 from tests.django_project.app.views import DeveloperViewSet2
 from tests.django_project.app.views import ProgrammingLanguageVersionViewSet
 from tests.django_project.app.views import ProgrammingLanguageViewSet
+from tests.django_project.app.views import WebsiteHostViewSet
+from tests.django_project.app.views import WebsiteViewSet
 from tests.django_project.app.views import WebsiteVisitViewSet
 
 
@@ -277,7 +280,7 @@ class TestDispatch(FixtureTestCase):
         eq_(200, response.status_code)
 
     def test_indirect_child_detail_via_one_to_one(self):
-        website = Website.objects.create(url='http://python.org/')
+        website = Website.objects.create(base_url='http://python.org/')
         self.programming_language1.website = website
         self.programming_language1.save()
         visit = WebsiteVisit.objects.create(website=website)
@@ -305,6 +308,43 @@ class TestDispatch(FixtureTestCase):
             kwargs={
                 'language': self.programming_language1.pk,
                 'visit': visit.pk,
+                },
+            urlconf=urlpatterns,
+            )
+        response = client.get(url_path)
+        eq_(200, response.status_code)
+
+    def test_many_to_many_relationships(self):
+        website = Website.objects.create(base_url='http://python.org/')
+        self.programming_language1.website = website
+        self.programming_language1.save()
+        website_host = WebsiteHost.objects.create(name='AWS')
+        website.hosts.add(website_host)
+
+        resources = [
+            Resource(
+                'website',
+                'websites',
+                WebsiteViewSet,
+                [
+                    NestedResource(
+                        'host',
+                        'hostss',
+                        WebsiteHostViewSet,
+                        parent_field_lookup='websites',
+                        ),
+                    ],
+                ),
+            ]
+        urlpatterns = make_urlpatterns_from_resources(resources)
+
+        client = _TestClient(urlpatterns)
+
+        url_path = reverse(
+            'host-detail',
+            kwargs={
+                'website': website.pk,
+                'host': website_host.pk,
                 },
             urlconf=urlpatterns,
             )

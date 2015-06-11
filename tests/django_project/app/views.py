@@ -6,6 +6,8 @@ from drf_nested_resources.fields import HyperlinkedNestedModelSerializer
 from tests.django_project.app.models import Developer
 from tests.django_project.app.models import ProgrammingLanguage
 from tests.django_project.app.models import ProgrammingLanguageVersion
+from tests.django_project.app.models import Website
+from tests.django_project.app.models import WebsiteHost
 from tests.django_project.app.models import WebsiteVisit
 
 
@@ -84,13 +86,29 @@ class ProgrammingLanguageVersionViewSet(ModelViewSet):
     serializer_class = _ProgrammingLanguageVersionSerializer
 
 
+class _WebsiteSerializaer(HyperlinkedNestedModelSerializer):
+
+    class Meta(object):
+
+        model = Website
+
+        fields = ('url', 'base_url')
+
+
+class WebsiteViewSet(ModelViewSet):
+
+    queryset = Website.objects.all()
+
+    serializer_class = _WebsiteSerializaer
+
+
 class _WebsiteVisitSerializaer(HyperlinkedNestedModelSerializer):
 
     class Meta(object):
 
         model = WebsiteVisit
 
-        fields = ('url', 'timestamp')
+        fields = ('url', 'timestamp', )
 
 
 class WebsiteVisitViewSet(ModelViewSet):
@@ -98,3 +116,19 @@ class WebsiteVisitViewSet(ModelViewSet):
     queryset = WebsiteVisit.objects.all()
 
     serializer_class = _WebsiteVisitSerializaer
+
+
+class _WebsiteHostSerializaer(HyperlinkedNestedModelSerializer):
+
+    class Meta(object):
+
+        model = WebsiteHost
+
+        fields = ('name', 'url')
+
+
+class WebsiteHostViewSet(ModelViewSet):
+
+    queryset = WebsiteHost.objects.all()
+
+    serializer_class = _WebsiteHostSerializaer

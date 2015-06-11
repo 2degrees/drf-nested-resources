@@ -3,6 +3,7 @@ from django.db.models.fields import CharField
 from django.db.models.fields import DateTimeField
 from django.db.models.fields import URLField
 from django.db.models.fields.related import ForeignKey
+from django.db.models.fields.related import ManyToManyField
 from django.db.models.fields.related import OneToOneField
 
 
@@ -30,7 +31,9 @@ class ProgrammingLanguageVersion(Model):
 
 class Website(Model):
 
-    url = URLField()
+    base_url = URLField()
+
+    hosts = ManyToManyField('WebsiteHost', related_name='websites')
 
 
 class WebsiteVisit(Model):
@@ -38,3 +41,8 @@ class WebsiteVisit(Model):
     timestamp = DateTimeField(auto_now_add=True)
 
     website = ForeignKey(Website, related_name='visit')
+
+
+class WebsiteHost(Model):
+
+    name = CharField(max_length=50)
