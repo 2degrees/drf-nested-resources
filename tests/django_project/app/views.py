@@ -1,13 +1,12 @@
 from django.http.response import HttpResponse
 from django.utils.decorators import classonlymethod
-from rest_framework.serializers import ModelSerializer
 from rest_framework.viewsets import ModelViewSet
 
 from drf_nested_resources.fields import HyperlinkedNestedModelSerializer
-
 from tests.django_project.app.models import Developer
 from tests.django_project.app.models import ProgrammingLanguage
 from tests.django_project.app.models import ProgrammingLanguageVersion
+from tests.django_project.app.models import WebsiteVisit
 
 
 def view(request, arg1, arg2):
@@ -83,3 +82,19 @@ class ProgrammingLanguageVersionViewSet(ModelViewSet):
     queryset = ProgrammingLanguageVersion.objects.all()
 
     serializer_class = _ProgrammingLanguageVersionSerializer
+
+
+class _WebsiteVisitSerializaer(HyperlinkedNestedModelSerializer):
+
+    class Meta(object):
+
+        model = WebsiteVisit
+
+        fields = ('url', 'timestamp')
+
+
+class WebsiteVisitViewSet(ModelViewSet):
+
+    queryset = WebsiteVisit.objects.all()
+
+    serializer_class = _WebsiteVisitSerializaer
