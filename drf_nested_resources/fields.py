@@ -1,3 +1,4 @@
+from django.db.models.base import Model
 from rest_framework.relations import HyperlinkedIdentityField
 from rest_framework.relations import HyperlinkedRelatedField
 from rest_framework.serializers import HyperlinkedModelSerializer
@@ -17,6 +18,9 @@ class HyperlinkedNestedRelatedField(HyperlinkedRelatedField):
         self.urlvars_by_view_name = urlvars_by_view_name
 
     def get_url(self, obj, view_name, request, format):
+        if isinstance(obj, Model) and obj.pk is None:
+            return None
+
         current_view_kwargs = request.parser_context['kwargs']
 
         view_urlvars = self.urlvars_by_view_name[view_name]
