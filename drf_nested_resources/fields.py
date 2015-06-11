@@ -17,15 +17,17 @@ class HyperlinkedNestedRelatedField(HyperlinkedRelatedField):
         self.urlvars_by_view_name = urlvars_by_view_name
 
     def get_url(self, obj, view_name, request, format):
-        if obj.pk is None:
-            return None
         current_view_kwargs = request.parser_context['kwargs']
 
         view_urlvars = self.urlvars_by_view_name[view_name]
         kwargs = {}
         for resource_name in view_urlvars:
-            kwargs[resource_name] = \
-                current_view_kwargs.get(resource_name, obj.pk)
+            try:
+                urlvar_value = current_view_kwargs[resource_name]
+            except KeyError:
+                urlvar_value = obj.pk
+            kwargs[resource_name] = urlvar_value
+
         url = self.reverse(
             view_name,
             kwargs=kwargs,
@@ -90,6 +92,7 @@ class HyperlinkedNestedModelSerializer(HyperlinkedModelSerializer):
 
         if relation_info.to_many:
             view_name_suffix = LIST_VIEW_NAME_SUFFIX
+            del field_kwargs['many']
         else:
             view_name_suffix = DETAIL_VIEW_NAME_SUFFIX
 

@@ -60,7 +60,7 @@ class _ProgrammingLanguageSerializer(HyperlinkedNestedModelSerializer):
 
         model = ProgrammingLanguage
 
-        fields = ('url', 'name', 'author')
+        fields = ('url', 'name', 'author', 'versions')
 
 
 class ProgrammingLanguageViewSet(ModelViewSet):
@@ -92,7 +92,7 @@ class _WebsiteSerializaer(HyperlinkedNestedModelSerializer):
 
         model = Website
 
-        fields = ('url', 'base_url')
+        fields = ('url', 'base_url', 'hosts')
 
 
 class WebsiteViewSet(ModelViewSet):
@@ -108,7 +108,7 @@ class _WebsiteVisitSerializaer(HyperlinkedNestedModelSerializer):
 
         model = WebsiteVisit
 
-        fields = ('url', 'timestamp', )
+        fields = ('url', 'timestamp')
 
 
 class WebsiteVisitViewSet(ModelViewSet):

@@ -153,6 +153,14 @@ class TestDispatch(FixtureTestCase):
             urlconf=urlpatterns,
             )
         response = client.get(url_path)
+        response_data = response.data
+        expected_languages_url = reverse(
+            'language-list',
+            kwargs={'developer': self.developer1.pk},
+            urlconf=urlpatterns,
+            )
+        languages_url = response_data['programming_languages']
+        ok_(languages_url.endswith(expected_languages_url))
         eq_(200, response.status_code)
 
     def test_non_existing_parent_detail(self):

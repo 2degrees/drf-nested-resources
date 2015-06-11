@@ -40,7 +40,7 @@ class WebsiteVisit(Model):
 
     timestamp = DateTimeField(auto_now_add=True)
 
-    website = ForeignKey(Website, related_name='visit')
+    website = ForeignKey(Website, related_name='visits')
 
 
 class WebsiteHost(Model):
