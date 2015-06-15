@@ -299,4 +299,5 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
             self.queryset = original_queryset
             return queryset
 
+    NestedViewSet.__name__ = '{}{}'.format(flattened_resource.name, 'ViewSet')
     return NestedViewSet
