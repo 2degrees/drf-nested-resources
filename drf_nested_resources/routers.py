@@ -3,16 +3,22 @@ from collections import defaultdict
 from re import IGNORECASE
 from re import compile as compile_regex
 
+from django.core.urlresolvers import reverse
 from django.db.models.constants import LOOKUP_SEP
 from django.db.models.fields.related import ForeignKey
 from django.db.models.fields.related import ManyToManyField
 from django.db.models.fields.related import ManyToManyRel
 from django.db.models.fields.related import OneToOneRel
 from pyrecord import Record
+from rest_framework.exceptions import NotAuthenticated
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.routers import DefaultRouter
+from rest_framework.status import HTTP_401_UNAUTHORIZED
+from rest_framework.status import HTTP_403_FORBIDDEN
 
 from drf_nested_resources import DETAIL_VIEW_NAME_SUFFIX
 from drf_nested_resources import LIST_VIEW_NAME_SUFFIX
+from drf_nested_resources._forged_request import RequestForger
 
 
 Resource = Record.create_type(
@@ -282,14 +288,10 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
 
             filters = {}
             ancestor_lookups = []
-            resource_names_and_lookups = tuple(
-                flattened_resource.ancestor_lookup_by_resource_name.items(),
-                )
-            for resource_name, lookup in reversed(resource_names_and_lookups):
-                urlvar_value = self.kwargs.get(resource_name)
-                if not urlvar_value:
-                    continue
-
+            resource_names_and_lookups = \
+                _get_resource_ancestors_and_lookups(flattened_resource)
+            for resource_name, lookup in resource_names_and_lookups:
+                urlvar_value = self.kwargs[resource_name]
                 ancestor_lookups.append(lookup)
                 lookup = LOOKUP_SEP.join(ancestor_lookups)
                 filters[lookup] = urlvar_value
@@ -299,5 +301,46 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
             self.queryset = original_queryset
             return queryset
 
+        def check_object_permissions(self, request, obj):
+            super(NestedViewSet, self).check_object_permissions(request, obj)
+
+            urlconf = request._request.urlconf
+
+            parent_detail_view_url = \
+                self._get_parent_resource_detail_view_url(urlconf)
+
+            request_forger = RequestForger(urlconf)
+            response = request_forger.get(parent_detail_view_url)
+            if response.status_code == HTTP_403_FORBIDDEN:
+                raise PermissionDenied()
+            elif response.status_code == HTTP_401_UNAUTHORIZED:
+                raise NotAuthenticated()
+
+        def _get_parent_resource_detail_view_url(self, urlconf):
+            ancestors_and_lookups = \
+                _get_resource_ancestors_and_lookups(flattened_resource)
+            try:
+                parent_base_name = next(ancestors_and_lookups)[0]
+            except StopIteration:
+                return
+
+            parent_detail_view_name = parent_base_name + DETAIL_VIEW_NAME_SUFFIX
+            parent_detail_view_urlvar_names = \
+                self._urlvars_by_view_name[parent_detail_view_name]
+            parent_detail_view_urlvars = \
+                {k: self.kwargs[k] for k in parent_detail_view_urlvar_names}
+            parent_detail_view_url = reverse(
+                parent_detail_view_name,
+                kwargs=parent_detail_view_urlvars,
+                urlconf=urlconf,
+                )
+            return parent_detail_view_url
+
     NestedViewSet.__name__ = '{}{}'.format(flattened_resource.name, 'ViewSet')
     return NestedViewSet
+
+
+def _get_resource_ancestors_and_lookups(flattened_resource):
+    resource_names_and_lookups = \
+        tuple(flattened_resource.ancestor_lookup_by_resource_name.items())
+    return reversed(resource_names_and_lookups)

@@ -1,6 +1,4 @@
 from django.core.urlresolvers import resolve
-from django.test import Client
-from django.test.client import ClientHandler
 from nose.tools import assert_raises
 from nose.tools import eq_
 from nose.tools import ok_
@@ -11,6 +9,7 @@ from drf_nested_resources.routers import NestedResource
 from drf_nested_resources.routers import Resource
 from drf_nested_resources.routers import make_urlpatterns_from_resources
 from tests._testcases import FixtureTestCase
+from tests._utils import TestClient
 from tests.django_project.app.models import Website
 from tests.django_project.app.models import WebsiteHost
 from tests.django_project.app.models import WebsiteVisit
@@ -151,7 +150,7 @@ class TestDispatch(FixtureTestCase):
     def test_parent_detail(self):
         urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
 
-        client = _TestClient(urlpatterns)
+        client = TestClient(urlpatterns)
 
         url_path = reverse(
             'developer-detail',
@@ -172,7 +171,7 @@ class TestDispatch(FixtureTestCase):
     def test_parent_list(self):
         urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
 
-        client = _TestClient(urlpatterns)
+        client = TestClient(urlpatterns)
 
         url_path = reverse('developer-list', urlconf=urlpatterns)
         response = client.get(url_path)
@@ -181,7 +180,7 @@ class TestDispatch(FixtureTestCase):
     def test_non_existing_parent_detail(self):
         urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
 
-        client = _TestClient(urlpatterns)
+        client = TestClient(urlpatterns)
 
         url_path = reverse(
             'developer-detail',
@@ -194,7 +193,7 @@ class TestDispatch(FixtureTestCase):
     def test_child_detail(self):
         urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
 
-        client = _TestClient(urlpatterns)
+        client = TestClient(urlpatterns)
 
         url_path = reverse(
             'language-detail',
@@ -209,7 +208,7 @@ class TestDispatch(FixtureTestCase):
     def test_child_detail_with_wrong_parent(self):
         urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
 
-        client = _TestClient(urlpatterns)
+        client = TestClient(urlpatterns)
 
         url_path = reverse(
             'language-detail',
@@ -225,7 +224,7 @@ class TestDispatch(FixtureTestCase):
     def test_child_detail_with_non_existing_parent(self):
         urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
 
-        client = _TestClient(urlpatterns)
+        client = TestClient(urlpatterns)
 
         url_path = reverse(
             'language-detail',
@@ -241,7 +240,7 @@ class TestDispatch(FixtureTestCase):
     def test_non_existing_child_detail(self):
         urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
 
-        client = _TestClient(urlpatterns)
+        client = TestClient(urlpatterns)
 
         url_path = reverse(
             'language-detail',
@@ -257,7 +256,7 @@ class TestDispatch(FixtureTestCase):
     def test_grand_child_detail(self):
         urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
 
-        client = _TestClient(urlpatterns)
+        client = TestClient(urlpatterns)
 
         url_path = reverse(
             'version-detail',
@@ -289,7 +288,7 @@ class TestDispatch(FixtureTestCase):
             ]
         urlpatterns = make_urlpatterns_from_resources(resources)
 
-        client = _TestClient(urlpatterns)
+        client = TestClient(urlpatterns)
 
         url_path = reverse(
             'version-detail',
@@ -324,7 +323,7 @@ class TestDispatch(FixtureTestCase):
             ]
         urlpatterns = make_urlpatterns_from_resources(resources)
 
-        client = _TestClient(urlpatterns)
+        client = TestClient(urlpatterns)
 
         url_path = reverse(
             'visit-detail',
@@ -361,7 +360,7 @@ class TestDispatch(FixtureTestCase):
             ]
         urlpatterns = make_urlpatterns_from_resources(resources)
 
-        client = _TestClient(urlpatterns)
+        client = TestClient(urlpatterns)
 
         url_path = reverse(
             'host-detail',
@@ -398,7 +397,7 @@ class TestDispatch(FixtureTestCase):
             ]
         urlpatterns = make_urlpatterns_from_resources(resources)
 
-        client = _TestClient(urlpatterns)
+        client = TestClient(urlpatterns)
 
         url_path = reverse(
             'website-detail',
@@ -410,22 +409,3 @@ class TestDispatch(FixtureTestCase):
             )
         response = client.get(url_path)
         eq_(200, response.status_code)
-
-
-class _TestClient(Client):
-
-    def __init__(self, urlconf, *args, **kwargs):
-        super(_TestClient, self).__init__(*args, **kwargs)
-
-        self.handler = _TestClientHandler(urlconf)
-
-
-class _TestClientHandler(ClientHandler):
-
-    def __init__(self, urlconf, *args, **kwargs):
-        super(_TestClientHandler, self).__init__(*args, **kwargs)
-        self._urlconf = urlconf
-
-    def get_response(self, request):
-        request.urlconf = self._urlconf
-        return super(_TestClientHandler, self).get_response(request)
