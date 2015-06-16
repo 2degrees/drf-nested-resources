@@ -16,7 +16,9 @@
 
 from os import path
 
+from setuptools import find_packages
 from setuptools import setup
+
 
 _HERE = path.abspath(path.dirname(__file__))
 _VERSION = open(path.join(_HERE, 'VERSION.txt')).readline().rstrip()
@@ -44,6 +46,7 @@ setup(
         ],
     keywords='',
     license='BSD (http://dev.2degreesnetwork.com/p/2degrees-license.html)',
+    packages=find_packages(exclude=['tests']),
     include_package_data=True,
     exclude_package_data={'': ['README.rst', 'CHANGELOG.txt']},
     install_requires=['djangorestframework == 3.1.2', 'pyrecord == 1.0rc2'],
