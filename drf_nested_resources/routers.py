@@ -3,6 +3,7 @@ from collections import defaultdict
 from re import IGNORECASE
 from re import compile as compile_regex
 
+from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.db.models.constants import LOOKUP_SEP
 from django.db.models.fields.related import ForeignKey
@@ -304,7 +305,8 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
         def check_object_permissions(self, request, obj):
             super(NestedViewSet, self).check_object_permissions(request, obj)
 
-            urlconf = getattr(request._request, 'urlconf', None)
+            urlconf = \
+                getattr(request._request, 'urlconf', settings.ROOT_URLCONF)
 
             parent_detail_view_url = \
                 self._get_parent_resource_detail_view_url(urlconf)
