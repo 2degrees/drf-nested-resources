@@ -62,8 +62,6 @@ def make_urlpatterns_from_resources(resources, router_class=None):
     flattened_resources = _flatten_nested_resources(resources)
 
     for flattened_resource in flattened_resources:
-        flattened_resource.name = _format_resource_name(flattened_resource.name)
-
         url_path = _create_url_path_from_flattened_resource(flattened_resource)
         nested_viewset = _create_nested_viewset(
             flattened_resource,
@@ -120,6 +118,8 @@ def _flatten_nested_resources(
 
     relational_routes = []
     for resource in resources:
+        resource.name = _format_resource_name(resource.name)
+
         parent_lookups_by_resource_collection_name = \
             _create_ancestor_lookup_by_resource_name(
                 ancestor_lookup_by_resource_name,
