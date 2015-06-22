@@ -311,8 +311,8 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
             parent_detail_view_url = \
                 self._get_parent_resource_detail_view_url(urlconf)
 
-            response = request_forger.get(parent_detail_view_url)
             request_forger = RequestForger(urlconf, request.user)
+            response = request_forger.head(parent_detail_view_url)
             if response.status_code == HTTP_403_FORBIDDEN:
                 raise PermissionDenied()
             elif response.status_code == HTTP_401_UNAUTHORIZED:
