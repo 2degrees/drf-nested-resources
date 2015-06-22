@@ -1,6 +1,8 @@
+from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
 from nose.tools.trivial import eq_
 from rest_framework.permissions import BasePermission
+from rest_framework.permissions import IsAuthenticated
 
 from drf_nested_resources.routers import NestedResource
 from drf_nested_resources.routers import Resource
@@ -56,10 +58,12 @@ class TestPermissions(FixtureTestCase):
         self,
         parent_view_set,
         child_view_set,
+        user=None,
         ):
         response = self._get_response_from_child_resource(
             parent_view_set,
             child_view_set,
+            user=user,
             )
         eq_(200, response.status_code)
 
@@ -84,11 +88,12 @@ class TestPermissions(FixtureTestCase):
         child_view_set,
         url_name=None,
         urlvars=None,
+        user=None,
         ):
         resources = self._build_resources(parent_view_set, child_view_set)
         urlpatterns = make_urlpatterns_from_resources(resources)
 
-        client = TestClient(urlpatterns)
+        client = TestClient(urlpatterns, user)
 
         url_name = url_name or 'language-detail'
         urlvars = urlvars or {
@@ -126,6 +131,23 @@ class TestPermissions(FixtureTestCase):
         return resources
 
 
+class TestUserPermissions(TestPermissions):
+
+    def test_access_to_authorized_child_of_authorized_parent(self):
+        user = User.objects.create_user('user')
+        self._assert_permission_granted_to_child_resource(
+            IsAuthenticatedDeveloperViewSet,
+            ProgrammingLanguageViewSet,
+            user=user,
+        )
+
+    def test_access_to_authorized_child_of_unauthorized_parent(self):
+        self._assert_permission_denied_to_child_resource(
+            IsAuthenticatedDeveloperViewSet,
+            ProgrammingLanguageViewSet,
+        )
+
+
 class _DenyAll(BasePermission):
 
     def has_permission(self, request, view):
@@ -143,3 +165,8 @@ class AccessDeniedDeveloperViewSet(DeveloperViewSet):
 class AccessDeniedProgrammingLanguageViewSet(ProgrammingLanguageViewSet):
 
     permission_classes = (_DenyAll, )
+
+
+class IsAuthenticatedDeveloperViewSet(DeveloperViewSet):
+
+    permission_classes = (IsAuthenticated, )
