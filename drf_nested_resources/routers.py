@@ -304,7 +304,13 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
 
         def check_object_permissions(self, request, obj):
             super(NestedViewSet, self).check_object_permissions(request, obj)
+            self._check_permissions(request)
 
+        def check_permissions(self, request):
+            super(NestedViewSet, self).check_permissions(request)
+            self._check_permissions(request)
+
+        def _check_permissions(self, request):
             urlconf = \
                 getattr(request._request, 'urlconf', settings.ROOT_URLCONF)
 

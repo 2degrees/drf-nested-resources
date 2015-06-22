@@ -22,8 +22,20 @@ class TestPermissions(FixtureTestCase):
             ProgrammingLanguageViewSet,
             )
 
+    def test_access_to_authorized_child_of_authorized_parent_list(self):
+        self._assert_permission_granted_to_child_resource_list(
+            DeveloperViewSet,
+            ProgrammingLanguageViewSet,
+            )
+
     def test_access_to_unauthorized_child_of_authorized_parent(self):
         self._assert_permission_denied_to_child_resource(
+            DeveloperViewSet,
+            AccessDeniedProgrammingLanguageViewSet,
+            )
+
+    def test_access_to_unauthorized_child_of_authorized_parent_list(self):
+        self._assert_permission_denied_to_child_resource_list(
             DeveloperViewSet,
             AccessDeniedProgrammingLanguageViewSet,
             )
@@ -34,8 +46,20 @@ class TestPermissions(FixtureTestCase):
             ProgrammingLanguageViewSet,
             )
 
+    def test_access_to_authorized_child_of_unauthorized_parent_list(self):
+        self._assert_permission_denied_to_child_resource_list(
+            AccessDeniedDeveloperViewSet,
+            ProgrammingLanguageViewSet,
+            )
+
     def test_access_to_unauthorized_child_of_unauthorized_parent(self):
         self._assert_permission_denied_to_child_resource(
+            AccessDeniedDeveloperViewSet,
+            AccessDeniedProgrammingLanguageViewSet,
+            )
+
+    def test_access_to_unauthorized_child_of_unauthorized_parent_list(self):
+        self._assert_permission_denied_to_child_resource_list(
             AccessDeniedDeveloperViewSet,
             AccessDeniedProgrammingLanguageViewSet,
             )
@@ -46,6 +70,19 @@ class TestPermissions(FixtureTestCase):
             'developer': self.developer1.pk,
             'language': self.programming_language1.pk,
             'version': self.programming_language_version.pk,
+            }
+        self._assert_permission_denied_to_child_resource(
+            AccessDeniedDeveloperViewSet,
+            ProgrammingLanguageViewSet,
+            url_name=url_name,
+            urlvars=urlvars,
+            )
+
+    def test_access_to_authorized_grandchild_of_unauthorized_grandparent_list(self):
+        url_name = 'version-list'
+        urlvars = {
+            'developer': self.developer1.pk,
+            'language': self.programming_language1.pk,
             }
         self._assert_permission_denied_to_child_resource(
             AccessDeniedDeveloperViewSet,
@@ -67,6 +104,19 @@ class TestPermissions(FixtureTestCase):
             )
         eq_(200, response.status_code)
 
+    def _assert_permission_granted_to_child_resource_list(
+        self,
+        parent_view_set,
+        child_view_set,
+        user=None,
+        ):
+        response = self._get_response_from_child_resource_list(
+            parent_view_set,
+            child_view_set,
+            user=user,
+            )
+        eq_(200, response.status_code)
+
     def _assert_permission_denied_to_child_resource(
         self,
         parent_view_set,
@@ -75,6 +125,21 @@ class TestPermissions(FixtureTestCase):
         urlvars=None,
         ):
         response = self._get_response_from_child_resource(
+            parent_view_set,
+            child_view_set,
+            url_name,
+            urlvars,
+            )
+        eq_(403, response.status_code)
+
+    def _assert_permission_denied_to_child_resource_list(
+        self,
+        parent_view_set,
+        child_view_set,
+        url_name=None,
+        urlvars=None,
+        ):
+        response = self._get_response_from_child_resource_list(
             parent_view_set,
             child_view_set,
             url_name,
@@ -100,6 +165,25 @@ class TestPermissions(FixtureTestCase):
             'developer': self.developer1.pk,
             'language': self.programming_language1.pk,
             }
+        url_path = reverse(url_name, kwargs=urlvars, urlconf=urlpatterns)
+        response = client.get(url_path)
+        return response
+
+    def _get_response_from_child_resource_list(
+        self,
+        parent_view_set,
+        child_view_set,
+        url_name=None,
+        urlvars=None,
+        user=None,
+        ):
+        resources = self._build_resources(parent_view_set, child_view_set)
+        urlpatterns = make_urlpatterns_from_resources(resources)
+
+        client = TestClient(urlpatterns, user)
+
+        url_name = url_name or 'language-list'
+        urlvars = urlvars or {'developer': self.developer1.pk}
         url_path = reverse(url_name, kwargs=urlvars, urlconf=urlpatterns)
         response = client.get(url_path)
         return response
@@ -139,13 +223,27 @@ class TestUserPermissions(TestPermissions):
             IsAuthenticatedDeveloperViewSet,
             ProgrammingLanguageViewSet,
             user=user,
-        )
+            )
+
+    def test_access_to_authorized_child_of_authorized_parent_list(self):
+        user = User.objects.create_user('user')
+        self._assert_permission_granted_to_child_resource_list(
+            IsAuthenticatedDeveloperViewSet,
+            ProgrammingLanguageViewSet,
+            user=user,
+            )
 
     def test_access_to_authorized_child_of_unauthorized_parent(self):
         self._assert_permission_denied_to_child_resource(
             IsAuthenticatedDeveloperViewSet,
             ProgrammingLanguageViewSet,
-        )
+            )
+
+    def test_access_to_authorized_child_of_unauthorized_parent_list(self):
+        self._assert_permission_denied_to_child_resource_list(
+            IsAuthenticatedDeveloperViewSet,
+            ProgrammingLanguageViewSet,
+            )
 
 
 class _DenyAll(BasePermission):
