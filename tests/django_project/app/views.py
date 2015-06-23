@@ -1,6 +1,8 @@
 from django.http.response import HttpResponse
 from django.utils.decorators import classonlymethod
+from rest_framework.decorators import detail_route
 from rest_framework.viewsets import ModelViewSet
+from rest_framework.response import Response
 
 from drf_nested_resources.fields import HyperlinkedNestedModelSerializer
 from tests.django_project.app.models import Developer
@@ -68,6 +70,10 @@ class ProgrammingLanguageViewSet(ModelViewSet):
     queryset = ProgrammingLanguage.objects.all()
 
     serializer_class = _ProgrammingLanguageSerializer
+
+    @detail_route(methods=['GET'])
+    def type(self, request, **kwargs):
+        return Response()
 
 
 class _ProgrammingLanguageVersionSerializer(HyperlinkedNestedModelSerializer):

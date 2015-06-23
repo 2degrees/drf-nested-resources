@@ -22,7 +22,7 @@ class TestPermissions(FixtureTestCase):
             ProgrammingLanguageViewSet,
             )
 
-    def test_access_to_authorized_child_of_authorized_parent_list(self):
+    def test_access_to_authorized_child_list_of_authorized_parent(self):
         self._assert_permission_granted_to_child_resource_list(
             DeveloperViewSet,
             ProgrammingLanguageViewSet,
@@ -34,7 +34,7 @@ class TestPermissions(FixtureTestCase):
             AccessDeniedProgrammingLanguageViewSet,
             )
 
-    def test_access_to_unauthorized_child_of_authorized_parent_list(self):
+    def test_access_to_unauthorized_child_list_of_authorized_parent(self):
         self._assert_permission_denied_to_child_resource_list(
             DeveloperViewSet,
             AccessDeniedProgrammingLanguageViewSet,
@@ -46,7 +46,7 @@ class TestPermissions(FixtureTestCase):
             ProgrammingLanguageViewSet,
             )
 
-    def test_access_to_authorized_child_of_unauthorized_parent_list(self):
+    def test_access_to_authorized_child_list_of_unauthorized_parent(self):
         self._assert_permission_denied_to_child_resource_list(
             AccessDeniedDeveloperViewSet,
             ProgrammingLanguageViewSet,
@@ -58,11 +58,32 @@ class TestPermissions(FixtureTestCase):
             AccessDeniedProgrammingLanguageViewSet,
             )
 
-    def test_access_to_unauthorized_child_of_unauthorized_parent_list(self):
+    def test_access_to_unauthorized_child_list_of_unauthorized_parent(self):
         self._assert_permission_denied_to_child_resource_list(
             AccessDeniedDeveloperViewSet,
             AccessDeniedProgrammingLanguageViewSet,
             )
+
+    def test_access_to_unauthorized_child_detail_route_of_unauthorized_parent(self):
+        self._assert_permission_denied_to_child_resource(
+            AccessDeniedDeveloperViewSet,
+            ProgrammingLanguageViewSet,
+            url_name='language-type',
+        )
+
+    def test_access_to_authorized_child_detail_route_of_authorized_parent(self):
+        self._assert_permission_granted_to_child_resource(
+            DeveloperViewSet,
+            ProgrammingLanguageViewSet,
+            url_name='language-type',
+        )
+
+    def test_access_to_authorized_child_detail_route_of_unauthorized_child(self):
+        self._assert_permission_denied_to_child_resource(
+            AccessDeniedDeveloperViewSet,
+            ProgrammingLanguageViewSet,
+            url_name='language-type',
+        )
 
     def test_access_to_authorized_grandchild_of_unauthorized_grandparent(self):
         url_name = 'version-detail'
@@ -78,7 +99,7 @@ class TestPermissions(FixtureTestCase):
             urlvars=urlvars,
             )
 
-    def test_access_to_authorized_grandchild_of_unauthorized_grandparent_list(self):
+    def test_access_to_authorized_grandchild_list_of_unauthorized_grandparent(self):
         url_name = 'version-list'
         urlvars = {
             'developer': self.developer1.pk,
@@ -95,12 +116,14 @@ class TestPermissions(FixtureTestCase):
         self,
         parent_view_set,
         child_view_set,
+        url_name=None,
         user=None,
         ):
         response = self._get_response_from_child_resource(
             parent_view_set,
             child_view_set,
             user=user,
+            url_name=url_name,
             )
         eq_(200, response.status_code)
 
