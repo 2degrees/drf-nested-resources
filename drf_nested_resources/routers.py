@@ -297,7 +297,7 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
                 lookup = LOOKUP_SEP.join(ancestor_lookups)
                 filters[lookup] = urlvar_value
             self.queryset = self.queryset.filter(**filters)
-            queryset = super(route_viewset, self).get_queryset()
+            queryset = super(NestedViewSet, self).get_queryset()
 
             self.queryset = original_queryset
             return queryset
