@@ -4,7 +4,7 @@ from django.test.client import ClientHandler
 
 class RequestForger(Client):
 
-    def __init__(self, urlconf, user, *args, **kwargs):
+    def __init__(self, urlconf, user=None, *args, **kwargs):
         super(RequestForger, self).__init__(*args, **kwargs)
 
         self.handler = _ForgedRequestHandler(urlconf, user)

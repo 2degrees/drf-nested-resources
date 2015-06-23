@@ -4,7 +4,7 @@ from django.test.client import ClientHandler
 
 class TestClient(Client):
 
-    def __init__(self, urlconf, user, *args, **kwargs):
+    def __init__(self, urlconf, user=None, *args, **kwargs):
         super(TestClient, self).__init__(*args, **kwargs)
 
         self.handler = _TestClientHandler(urlconf, user)
