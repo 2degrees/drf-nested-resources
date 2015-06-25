@@ -287,8 +287,8 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
             return NestedSerializer
 
         def get_queryset(self):
-            response = self._request_parent_resource(self.request)
-            if response.status_code == HTTP_404_NOT_FOUND:
+            status = self._get_status_for_parent_resource_request(self.request)
+            if status == HTTP_404_NOT_FOUND:
                 raise Http404()
 
             filters = {}
@@ -313,13 +313,13 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
             self._check_permissions(request)
 
         def _check_permissions(self, request):
-            response = self._request_parent_resource(request)
-            if response.status_code == HTTP_403_FORBIDDEN:
+            status = self._get_status_for_parent_resource_request(request)
+            if status == HTTP_403_FORBIDDEN:
                 raise PermissionDenied()
-            elif response.status_code == HTTP_401_UNAUTHORIZED:
+            elif status == HTTP_401_UNAUTHORIZED:
                 raise NotAuthenticated()
 
-        def _request_parent_resource(self, request):
+        def _get_status_for_parent_resource_request(self, request):
             urlconf = \
                 getattr(request._request, 'urlconf', settings.ROOT_URLCONF)
 
@@ -328,7 +328,12 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
 
             request_forger = RequestForger(urlconf, request.user)
             response = request_forger.head(parent_detail_view_url)
-            return response
+
+            if parent_detail_view_url:
+                status_code = response.status_code
+            else:
+                status_code = None
+            return status_code
 
         def _get_parent_resource_detail_view_url(self, urlconf):
             ancestors_and_lookups = \

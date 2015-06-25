@@ -1,5 +1,7 @@
 from django.core.urlresolvers import resolve
 from nose.tools import assert_raises
+from django.conf.urls import url
+from django.conf.urls import include
 from nose.tools import eq_
 from nose.tools import ok_
 from rest_framework.reverse import reverse
@@ -178,6 +180,16 @@ class TestDispatch(FixtureTestCase):
         response = client.get(url_path)
         eq_(200, response.status_code)
 
+    def test_parent_list_mounted_on_different_urlpath(self):
+        api_urls = list(make_urlpatterns_from_resources(self._RESOURCES))
+        urlpatterns = (url(r'^api/', include(api_urls)),)
+
+        client = TestClient(urlpatterns)
+
+        url_path = reverse('developer-list', urlconf=urlpatterns)
+        response = client.get(url_path)
+        eq_(200, response.status_code)
+
     def test_non_existing_parent_detail(self):
         urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
 
@@ -200,7 +212,21 @@ class TestDispatch(FixtureTestCase):
             'language-detail',
             kwargs={
                 'developer': self.developer1.pk,
-                'language': self.programming_language1.pk},
+                'language': self.programming_language1.pk,
+                },
+            urlconf=urlpatterns,
+            )
+        response = client.get(url_path)
+        eq_(200, response.status_code)
+
+    def test_child_list(self):
+        urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
+
+        client = TestClient(urlpatterns)
+
+        url_path = reverse(
+            'language-list',
+            kwargs={'developer': self.developer1.pk},
             urlconf=urlpatterns,
             )
         response = client.get(url_path)
