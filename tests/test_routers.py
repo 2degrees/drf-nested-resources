@@ -270,6 +270,23 @@ class TestDispatch(FixtureTestCase):
         response = client.get(url_path)
         eq_(200, response.status_code)
 
+    def test_detail_with_non_existing_grandparent(self):
+        urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
+
+        client = TestClient(urlpatterns)
+
+        url_path = reverse(
+            'version-detail',
+            kwargs={
+                'developer': self.developer2.pk + 1,
+                'language': self.programming_language1.pk,
+                'version': self.programming_language_version.pk,
+                },
+            urlconf=urlpatterns,
+            )
+        response = client.get(url_path)
+        eq_(404, response.status_code)
+
     def test_indirect_relation_detail(self):
         resources = [
             Resource(
