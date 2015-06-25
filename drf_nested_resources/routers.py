@@ -10,11 +10,13 @@ from django.db.models.fields.related import ForeignKey
 from django.db.models.fields.related import ManyToManyField
 from django.db.models.fields.related import ManyToManyRel
 from django.db.models.fields.related import OneToOneRel
+from django.http import Http404
 from pyrecord import Record
 from rest_framework.exceptions import NotAuthenticated
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.routers import DefaultRouter
 from rest_framework.status import HTTP_401_UNAUTHORIZED
+from rest_framework.status import HTTP_404_NOT_FOUND
 from rest_framework.status import HTTP_403_FORBIDDEN
 
 from drf_nested_resources import DETAIL_VIEW_NAME_SUFFIX
@@ -285,6 +287,10 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
             return NestedSerializer
 
         def get_queryset(self):
+            response = self._request_parent_resource(self.request)
+            if response.status_code == HTTP_404_NOT_FOUND:
+                raise Http404()
+
             filters = {}
             ancestor_lookups = []
             resource_names_and_lookups = \
@@ -307,6 +313,13 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
             self._check_permissions(request)
 
         def _check_permissions(self, request):
+            response = self._request_parent_resource(request)
+            if response.status_code == HTTP_403_FORBIDDEN:
+                raise PermissionDenied()
+            elif response.status_code == HTTP_401_UNAUTHORIZED:
+                raise NotAuthenticated()
+
+        def _request_parent_resource(self, request):
             urlconf = \
                 getattr(request._request, 'urlconf', settings.ROOT_URLCONF)
 
@@ -315,10 +328,7 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
 
             request_forger = RequestForger(urlconf, request.user)
             response = request_forger.head(parent_detail_view_url)
-            if response.status_code == HTTP_403_FORBIDDEN:
-                raise PermissionDenied()
-            elif response.status_code == HTTP_401_UNAUTHORIZED:
-                raise NotAuthenticated()
+            return response
 
         def _get_parent_resource_detail_view_url(self, urlconf):
             ancestors_and_lookups = \

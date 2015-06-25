@@ -10,6 +10,7 @@ from drf_nested_resources.routers import Resource
 from drf_nested_resources.routers import make_urlpatterns_from_resources
 from tests._testcases import FixtureTestCase
 from tests._utils import TestClient
+from tests.django_project.app.models import Developer
 from tests.django_project.app.models import Website
 from tests.django_project.app.models import WebsiteHost
 from tests.django_project.app.models import WebsiteVisit
@@ -237,6 +238,82 @@ class TestDispatch(FixtureTestCase):
         response = client.get(url_path)
         eq_(404, response.status_code)
 
+    def test_child_list_with_non_existing_parent(self):
+        urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
+
+        client = TestClient(urlpatterns)
+
+        url_path = reverse(
+            'language-list',
+            kwargs={'developer': self.developer2.pk + 1},
+            urlconf=urlpatterns,
+            )
+        response = client.get(url_path)
+        eq_(404, response.status_code)
+
+    def test_child_detail_with_non_viewable_parent(self):
+        resources = [
+            Resource(
+                'website',
+                'websites',
+                _WebsiteViewSetWithCustomGetQueryset,
+                [
+                    NestedResource(
+                        'host',
+                        'hosts',
+                        WebsiteHostViewSet,
+                        parent_field_lookup='websites',
+                        ),
+                    ],
+                ),
+            ]
+        urlpatterns = make_urlpatterns_from_resources(resources)
+
+        client = TestClient(urlpatterns)
+
+        url_path = reverse(
+            'host-detail',
+            kwargs={
+                'website': self.website.pk,
+                'host': self.website_host.pk,
+                },
+            urlconf=urlpatterns,
+            )
+
+        response = client.get(url_path)
+        eq_(404, response.status_code)
+
+    def test_child_list_with_non_viewable_parent(self):
+        resources = [
+            Resource(
+                'website',
+                'websites',
+                _WebsiteViewSetWithCustomGetQueryset,
+                [
+                    NestedResource(
+                        'host',
+                        'hosts',
+                        WebsiteHostViewSet,
+                        parent_field_lookup='websites',
+                        ),
+                    ],
+                ),
+            ]
+        urlpatterns = make_urlpatterns_from_resources(resources)
+
+        client = TestClient(urlpatterns)
+
+        url_path = reverse(
+            'host-list',
+            kwargs={
+                'website': self.website.pk,
+                },
+            urlconf=urlpatterns,
+            )
+
+        response = client.get(url_path)
+        eq_(404, response.status_code)
+
     def test_non_existing_child_detail(self):
         urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
 
@@ -319,10 +396,7 @@ class TestDispatch(FixtureTestCase):
         eq_(200, response.status_code)
 
     def test_indirect_child_detail_via_one_to_one(self):
-        website = Website.objects.create(base_url='http://python.org/')
-        self.programming_language1.website = website
-        self.programming_language1.save()
-        visit = WebsiteVisit.objects.create(website=website)
+        visit = WebsiteVisit.objects.create(website=self.website)
         resources = [
             Resource(
                 'language',
@@ -354,12 +428,6 @@ class TestDispatch(FixtureTestCase):
         eq_(200, response.status_code)
 
     def test_many_to_many_relationships(self):
-        website = Website.objects.create(base_url='http://python.org/')
-        self.programming_language1.website = website
-        self.programming_language1.save()
-        website_host = WebsiteHost.objects.create(name='AWS')
-        website.hosts.add(website_host)
-
         resources = [
             Resource(
                 'website',
@@ -382,8 +450,8 @@ class TestDispatch(FixtureTestCase):
         url_path = reverse(
             'host-detail',
             kwargs={
-                'website': website.pk,
-                'host': website_host.pk,
+                'website': self.website.pk,
+                'host': self.website_host.pk,
                 },
             urlconf=urlpatterns,
             )
@@ -391,12 +459,6 @@ class TestDispatch(FixtureTestCase):
         eq_(200, response.status_code)
 
     def test_reverse_many_to_many_relationships(self):
-        website = Website.objects.create(base_url='http://python.org/')
-        self.programming_language1.website = website
-        self.programming_language1.save()
-        website_host = WebsiteHost.objects.create(name='AWS')
-        website.hosts.add(website_host)
-
         resources = [
             Resource(
                 'host',
@@ -419,10 +481,16 @@ class TestDispatch(FixtureTestCase):
         url_path = reverse(
             'website-detail',
             kwargs={
-                'website': website.pk,
-                'host': website_host.pk,
+                'website': self.website.pk,
+                'host': self.website_host.pk,
                 },
             urlconf=urlpatterns,
             )
         response = client.get(url_path)
         eq_(200, response.status_code)
+
+
+class _WebsiteViewSetWithCustomGetQueryset(WebsiteViewSet):
+
+    def get_queryset(self):
+        return Website.objects.none()
