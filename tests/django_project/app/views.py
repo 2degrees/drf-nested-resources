@@ -92,7 +92,7 @@ class ProgrammingLanguageVersionViewSet(ModelViewSet):
     serializer_class = _ProgrammingLanguageVersionSerializer
 
 
-class _WebsiteSerializaer(HyperlinkedNestedModelSerializer):
+class _WebsiteSerializer(HyperlinkedNestedModelSerializer):
 
     class Meta(object):
 
@@ -105,10 +105,10 @@ class WebsiteViewSet(ModelViewSet):
 
     queryset = Website.objects.all()
 
-    serializer_class = _WebsiteSerializaer
+    serializer_class = _WebsiteSerializer
 
 
-class _WebsiteVisitSerializaer(HyperlinkedNestedModelSerializer):
+class _WebsiteVisitSerializer(HyperlinkedNestedModelSerializer):
 
     class Meta(object):
 
@@ -121,10 +121,10 @@ class WebsiteVisitViewSet(ModelViewSet):
 
     queryset = WebsiteVisit.objects.all()
 
-    serializer_class = _WebsiteVisitSerializaer
+    serializer_class = _WebsiteVisitSerializer
 
 
-class _WebsiteHostSerializaer(HyperlinkedNestedModelSerializer):
+class _WebsiteHostSerializer(HyperlinkedNestedModelSerializer):
 
     class Meta(object):
 
@@ -137,4 +137,4 @@ class WebsiteHostViewSet(ModelViewSet):
 
     queryset = WebsiteHost.objects.all()
 
-    serializer_class = _WebsiteHostSerializaer
+    serializer_class = _WebsiteHostSerializer
