@@ -285,8 +285,6 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
             return NestedSerializer
 
         def get_queryset(self):
-            original_queryset = self.queryset
-
             filters = {}
             ancestor_lookups = []
             resource_names_and_lookups = \
@@ -296,10 +294,8 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
                 ancestor_lookups.append(lookup)
                 lookup = LOOKUP_SEP.join(ancestor_lookups)
                 filters[lookup] = urlvar_value
-            self.queryset = self.queryset.filter(**filters)
             queryset = super(NestedViewSet, self).get_queryset()
-
-            self.queryset = original_queryset
+            queryset = queryset.filter(**filters)
             return queryset
 
         def check_object_permissions(self, request, obj):
