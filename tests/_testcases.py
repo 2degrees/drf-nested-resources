@@ -1,3 +1,4 @@
+from django.db.models import Max
 from django.test.testcases import TransactionTestCase
 
 from tests.django_project.app.models import Developer
@@ -33,3 +34,6 @@ class FixtureTestCase(TransactionTestCase):
 
         self.website_host = WebsiteHost.objects.create(name='AWS')
         self.website.hosts.add(self.website_host)
+
+        self.non_existing_developer_pk = \
+            Developer.objects.all().aggregate(Max('pk'))['pk__max'] + 1

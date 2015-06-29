@@ -12,9 +12,7 @@ from drf_nested_resources.routers import Resource
 from drf_nested_resources.routers import make_urlpatterns_from_resources
 from tests._testcases import FixtureTestCase
 from tests._utils import TestClient
-from tests.django_project.app.models import Developer
 from tests.django_project.app.models import Website
-from tests.django_project.app.models import WebsiteHost
 from tests.django_project.app.models import WebsiteVisit
 from tests.django_project.app.views import DeveloperViewSet
 from tests.django_project.app.views import DeveloperViewSet2
@@ -197,7 +195,7 @@ class TestDispatch(FixtureTestCase):
 
         url_path = reverse(
             'developer-detail',
-            kwargs={'developer': self.developer2.pk + 1},
+            kwargs={'developer': self.non_existing_developer_pk},
             urlconf=urlpatterns,
             )
         response = client.get(url_path)
@@ -256,7 +254,7 @@ class TestDispatch(FixtureTestCase):
         url_path = reverse(
             'language-detail',
             kwargs={
-                'developer': self.developer2.pk + 1,
+                'developer': self.non_existing_developer_pk,
                 'language': self.programming_language1.pk,
                 },
             urlconf=urlpatterns,
@@ -271,7 +269,7 @@ class TestDispatch(FixtureTestCase):
 
         url_path = reverse(
             'language-list',
-            kwargs={'developer': self.developer2.pk + 1},
+            kwargs={'developer': self.non_existing_developer_pk},
             urlconf=urlpatterns,
             )
         response = client.get(url_path)
@@ -349,7 +347,7 @@ class TestDispatch(FixtureTestCase):
             'language-detail',
             kwargs={
                 'developer': self.developer1.pk,
-                'language': self.programming_language2.pk + 1,
+                'language': self.non_existing_developer_pk,
                 },
             urlconf=urlpatterns,
             )
@@ -381,7 +379,7 @@ class TestDispatch(FixtureTestCase):
         url_path = reverse(
             'version-detail',
             kwargs={
-                'developer': self.developer2.pk + 1,
+                'developer': self.non_existing_developer_pk,
                 'language': self.programming_language1.pk,
                 'version': self.programming_language_version.pk,
                 },
