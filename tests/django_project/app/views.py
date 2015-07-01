@@ -52,7 +52,6 @@ class _DeveloperSerializer2(HyperlinkedNestedModelSerializer):
 
 class DeveloperViewSet2(DeveloperViewSet):
 
-
     serializer_class = _DeveloperSerializer2
 
 
@@ -62,7 +61,7 @@ class _ProgrammingLanguageSerializer(HyperlinkedNestedModelSerializer):
 
         model = ProgrammingLanguage
 
-        fields = ('url', 'name', 'author', 'versions')
+        fields = ('url', 'name', 'author')
 
 
 class ProgrammingLanguageViewSet(ModelViewSet):
@@ -98,7 +97,7 @@ class _WebsiteSerializer(HyperlinkedNestedModelSerializer):
 
         model = Website
 
-        fields = ('url', 'base_url', 'hosts')
+        fields = ('url', 'base_url')
 
 
 class WebsiteViewSet(ModelViewSet):

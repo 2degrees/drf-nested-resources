@@ -423,19 +423,27 @@ class TestDispatch(FixtureTestCase):
         visit = WebsiteVisit.objects.create(website=self.website)
         resources = [
             Resource(
-                'language',
-                'languages',
-                ProgrammingLanguageViewSet,
+                'developer',
+                'developers',
+                DeveloperViewSet,
                 [
                     NestedResource(
-                        'visit',
-                        'visits',
-                        WebsiteVisitViewSet,
-                        parent_field_lookup='website__language',
-                        ),
-                    ],
-                ),
-            ]
+                        'language',
+                        'languages',
+                        ProgrammingLanguageViewSet,
+                        [
+                            NestedResource(
+                                'visit',
+                                'visits',
+                                WebsiteVisitViewSet,
+                                parent_field_lookup='website__language',
+                                ),
+                            ],
+                        parent_field_lookup='author',
+                    ),
+                ],
+            ),
+        ]
         urlpatterns = make_urlpatterns_from_resources(resources)
 
         client = TestClient(urlpatterns)
@@ -443,6 +451,7 @@ class TestDispatch(FixtureTestCase):
         url_path = reverse(
             'visit-detail',
             kwargs={
+                'developer': self.developer1.pk,
                 'language': self.programming_language1.pk,
                 'visit': visit.pk,
                 },

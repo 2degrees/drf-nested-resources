@@ -16,6 +16,7 @@ from rest_framework.exceptions import NotAuthenticated
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.routers import DefaultRouter
 from rest_framework.status import HTTP_401_UNAUTHORIZED
+from rest_framework.status import HTTP_200_OK
 from rest_framework.status import HTTP_404_NOT_FOUND
 from rest_framework.status import HTTP_403_FORBIDDEN
 
@@ -287,10 +288,6 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
             return NestedSerializer
 
         def get_queryset(self):
-            status = self._get_status_for_parent_resource_request(self.request)
-            if status == HTTP_404_NOT_FOUND:
-                raise Http404()
-
             filters = {}
             ancestor_lookups = []
             resource_names_and_lookups = \
@@ -314,10 +311,16 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
 
         def _check_permissions(self, request):
             status = self._get_status_for_parent_resource_request(request)
-            if status == HTTP_403_FORBIDDEN:
+            if status in (None, HTTP_200_OK):
+                pass
+            elif status == HTTP_404_NOT_FOUND:
+                raise Http404()
+            elif status == HTTP_403_FORBIDDEN:
                 raise PermissionDenied()
             elif status == HTTP_401_UNAUTHORIZED:
                 raise NotAuthenticated()
+            else:
+                assert False, 'Status code {} is not handled'.format(status)
 
         def _get_status_for_parent_resource_request(self, request):
             urlconf = \
@@ -325,8 +328,8 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
 
             parent_detail_view_url = \
                 self._get_parent_resource_detail_view_url(urlconf)
-
-            request_forger = RequestForger(urlconf, request.user)
+            request_forger = \
+                RequestForger(urlconf, request.get_host(), request.user)
             response = request_forger.head(parent_detail_view_url)
 
             if parent_detail_view_url:

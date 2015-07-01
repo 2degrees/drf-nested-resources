@@ -5,6 +5,7 @@ from django.test.client import ClientHandler
 class TestClient(Client):
 
     def __init__(self, urlconf, user=None, *args, **kwargs):
+        kwargs['SERVER_NAME'] = 'example.org'
         super(TestClient, self).__init__(*args, **kwargs)
 
         self.handler = _TestClientHandler(urlconf, user)

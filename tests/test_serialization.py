@@ -326,7 +326,7 @@ class TestRelatedLinkedField(FixtureTestCase):
 
 
 def _make_django_request(view_name, view_kwargs, urlconf=None):
-    request_factory = RequestFactory()
+    request_factory = RequestFactory(SERVER_NAME='example.org')
     url_path = reverse(view_name, kwargs=view_kwargs, urlconf=urlconf)
     django_request = request_factory.get(url_path)
     django_request.resolver_match = (view_name, (), view_kwargs)
