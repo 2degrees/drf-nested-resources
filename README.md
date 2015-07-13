@@ -17,62 +17,63 @@ endpoints:
 
 First we start with the following Django models:
 
-    from django.db.models.base import Model
-    from django.db.models.fields import CharField
-    from django.db.models.fields.related import ForeignKey
+```python
+from django.db.models.base import Model
+from django.db.models.fields import CharField
+from django.db.models.fields.related import ForeignKey
 
 
-    class Developer(Model):
+class Developer(Model):
 
-        name = CharField(max_length=20)
+    name = CharField(max_length=20)
 
 
-    class ProgrammingLanguage(Model):
+class ProgrammingLanguage(Model):
 
-        name = CharField(max_length=20)
+    name = CharField(max_length=20)
 
-        author = ForeignKey(Developer, related_name='programming_languages')
-
+    author = ForeignKey(Developer, related_name='programming_languages')
+```
 
 We will have the two viewsets for both the `developers` and `languages` resource
 collections.
 
-
-    from rest_framework.viewsets import ModelViewSet
-    from drf_nested_resources.fields import HyperlinkedNestedModelSerializer
-
-
-    class _DeveloperSerializer(HyperlinkedNestedModelSerializer):
-
-        class Meta(object):
-
-            model = Developer
-
-            fields = ('url', 'name', 'programming_languages')
+```python
+from rest_framework.viewsets import ModelViewSet
+from drf_nested_resources.fields import HyperlinkedNestedModelSerializer
 
 
-    class DeveloperViewSet(ModelViewSet):
+class _DeveloperSerializer(HyperlinkedNestedModelSerializer):
 
-        queryset = Developer.objects.all()
+    class Meta(object):
 
-        serializer_class = _DeveloperSerializer
+        model = Developer
 
-
-    class _ProgrammingLanguageSerializer(HyperlinkedNestedModelSerializer):
-
-        class Meta(object):
-
-            model = ProgrammingLanguage
-
-            fields = ('url', 'name', 'author')
+        fields = ('url', 'name', 'programming_languages')
 
 
-    class ProgrammingLanguageViewSet(ModelViewSet):
+class DeveloperViewSet(ModelViewSet):
 
-        queryset = ProgrammingLanguage.objects.all()
+    queryset = Developer.objects.all()
 
-        serializer_class = _ProgrammingLanguageSerializer
+    serializer_class = _DeveloperSerializer
 
+
+class _ProgrammingLanguageSerializer(HyperlinkedNestedModelSerializer):
+
+    class Meta(object):
+
+        model = ProgrammingLanguage
+
+        fields = ('url', 'name', 'author')
+
+
+class ProgrammingLanguageViewSet(ModelViewSet):
+
+    queryset = ProgrammingLanguage.objects.all()
+
+    serializer_class = _ProgrammingLanguageSerializer
+```
 
 The related fields in the ViewSets `author` and `programming_languages` should
 follow the model representation so that `author` will give us a url for the
@@ -82,23 +83,24 @@ wrote.
 
 This is how you would generate the urlpatterns for them:
 
-
-    _RESOURCES = [
-        Resource(
-            'developer',
-            'developers',
-            DeveloperViewSet,
-            [
-                NestedResource(
-                    'language',
-                    'languages',
-                    ProgrammingLanguageViewSet,
-                    )
-                ],
-            ),
-        ]
-    urlpatterns = make_urlpatterns_from_resources(_RESOURCES)
-
+```python
+_RESOURCES = [
+    Resource(
+        'developer',
+        'developers',
+        DeveloperViewSet,
+        [
+            NestedResource(
+                'language',
+                'languages',
+                ProgrammingLanguageViewSet,
+                parent_field_lookup='author',
+                )
+            ],
+        ),
+    ]
+urlpatterns = make_urlpatterns_from_resources(_RESOURCES)
+```
 
 For more examples of different relationships and authorization check the test
 suite.
