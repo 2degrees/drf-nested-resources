@@ -22,7 +22,7 @@ from setuptools import setup
 
 _HERE = path.abspath(path.dirname(__file__))
 _VERSION = open(path.join(_HERE, 'VERSION.txt')).readline().rstrip()
-_README = open(path.join(_HERE, 'README.rst')).read().strip()
+_README = open(path.join(_HERE, 'README.md')).read().strip()
 _CHANGELOG = open(path.join(_HERE, 'CHANGELOG.txt')).read().strip()
 _LONG_DESCRIPTION = '\n\n'.join((_README, _CHANGELOG))
 
@@ -48,6 +48,6 @@ setup(
     license='BSD (http://dev.2degreesnetwork.com/p/2degrees-license.html)',
     packages=find_packages(exclude=['tests']),
     include_package_data=True,
-    exclude_package_data={'': ['README.rst', 'CHANGELOG.txt']},
+    exclude_package_data={'': ['README.md', 'CHANGELOG.txt']},
     install_requires=['djangorestframework == 3.1.2', 'pyrecord == 1.0rc2'],
     )
