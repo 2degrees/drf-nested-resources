@@ -8,5 +8,6 @@ environ['DJANGO_SETTINGS_MODULE'] = 'tests.django_project.settings'
 
 
 def setup():
-    dj_setup()
     setup_databases(0, False)
+
+dj_setup()

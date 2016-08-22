@@ -11,6 +11,7 @@ from drf_nested_resources.routers import NestedResource
 from drf_nested_resources.routers import Resource
 from drf_nested_resources.routers import make_urlpatterns_from_resources
 from tests._testcases import FixtureTestCase
+from tests._testcases import TestCase
 from tests._utils import TestClient
 from tests.django_project.app.models import Website
 from tests.django_project.app.models import WebsiteVisit
@@ -23,7 +24,7 @@ from tests.django_project.app.views import WebsiteViewSet
 from tests.django_project.app.views import WebsiteVisitViewSet
 
 
-class TestURLPatternGeneration(object):
+class TestURLPatternGeneration(TestCase):
 
     @staticmethod
     def test_default_router():

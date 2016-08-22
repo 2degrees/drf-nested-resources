@@ -1,5 +1,6 @@
 from django.db.models import Max
-from django.test.testcases import TransactionTestCase
+from django.test.testcases import TestCase as DjangoTestCase
+from django.urls import set_urlconf
 
 from tests.django_project.app.models import Developer
 from tests.django_project.app.models import WebsiteHost
@@ -8,9 +9,16 @@ from tests.django_project.app.models import ProgrammingLanguage
 from tests.django_project.app.models import ProgrammingLanguageVersion
 
 
-class FixtureTestCase(TransactionTestCase):
+class TestCase(DjangoTestCase):
 
-    reset_sequences = True
+    def tearDown(self):
+        # Ensure that any changes to the root URL config are reverted after the
+        # test
+        set_urlconf(None)
+        super(TestCase, self).tearDown()
+
+
+class FixtureTestCase(TestCase):
 
     def setUp(self):
         super(FixtureTestCase, self).setUp()

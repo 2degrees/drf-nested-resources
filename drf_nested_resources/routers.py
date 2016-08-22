@@ -185,7 +185,7 @@ def _get_reverse_relationship_name(parent_field_lookup, model):
     model_options = model._meta
     direct_parent_lookup, _, indirect_parent_lookups = \
         parent_field_lookup.partition(LOOKUP_SEP)
-    field = model_options.get_field_by_name(direct_parent_lookup)[0]
+    field = model_options.get_field(direct_parent_lookup)
 
     if isinstance(field, (OneToOneRel, ManyToManyRel)):
         relationship = field
@@ -251,7 +251,7 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
         lookup_url_kwarg = flattened_resource.name
 
         def __init__(self, *args, **kwargs):
-            relational_routes = kwargs.pop('relational_routes')
+            relational_routes = kwargs.pop('relational_routes', ())
             super(NestedViewSet, self).__init__(*args, **kwargs)
             self._relational_routes = relational_routes
             urlvars_by_view_name = {}
@@ -328,14 +328,15 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
 
             parent_detail_view_url = \
                 self._get_parent_resource_detail_view_url(urlconf)
-            request_forger = \
-                RequestForger(urlconf, request.get_host(), request.user)
-            response = request_forger.head(parent_detail_view_url)
 
             if parent_detail_view_url:
+                request_forger = \
+                    RequestForger(urlconf, request.get_host(), request.user)
+                response = request_forger.head(parent_detail_view_url)
                 status_code = response.status_code
             else:
                 status_code = None
+
             return status_code
 
         def _get_parent_resource_detail_view_url(self, urlconf):

@@ -2,10 +2,10 @@ from functools import partial
 
 from nose.tools import assert_is_none
 from nose.tools import eq_
-from rest_framework.compat import RequestFactory
 from rest_framework.relations import PKOnlyObject
 from rest_framework.request import Request
 from rest_framework.reverse import reverse
+from rest_framework.test import APIRequestFactory
 
 from drf_nested_resources.fields import HyperlinkedNestedIdentityField
 from drf_nested_resources.fields import HyperlinkedNestedRelatedField
@@ -13,13 +13,14 @@ from drf_nested_resources.routers import NestedResource
 from drf_nested_resources.routers import Resource
 from drf_nested_resources.routers import make_urlpatterns_from_resources
 from tests._testcases import FixtureTestCase
+from tests._testcases import TestCase
 from tests.django_project.app.models import ProgrammingLanguageVersion
 from tests.django_project.app.views import DeveloperViewSet
 from tests.django_project.app.views import ProgrammingLanguageVersionViewSet
 from tests.django_project.app.views import ProgrammingLanguageViewSet
 
 
-class TestIdentityField(object):
+class TestIdentityField(TestCase):
 
     _SOURCE_VIEW_NAME = 'children'
 
@@ -28,9 +29,13 @@ class TestIdentityField(object):
     _URLVARS_BY_VIEW_NAME = \
         {'children': ('parent', ), 'child': ('parent', 'child')}
 
-    def setup(self):
-        self._django_request = \
-            _make_django_request(self._SOURCE_VIEW_NAME, {'parent': 'foo'})
+    def setUp(self):
+        super(TestIdentityField, self).setUp()
+        self._django_request = _make_django_request(
+            self._SOURCE_VIEW_NAME,
+            {'parent': 'foo'},
+            'tests.django_project.urls',
+        )
 
     def test_url_generation(self):
         url = self._make_url_with_kwargs_via_field('foo')
@@ -326,7 +331,7 @@ class TestRelatedLinkedField(FixtureTestCase):
 
 
 def _make_django_request(view_name, view_kwargs, urlconf=None):
-    request_factory = RequestFactory(SERVER_NAME='example.org')
+    request_factory = APIRequestFactory(SERVER_NAME='example.org')
     url_path = reverse(view_name, kwargs=view_kwargs, urlconf=urlconf)
     django_request = request_factory.get(url_path)
     django_request.resolver_match = (view_name, (), view_kwargs)

@@ -49,5 +49,5 @@ setup(
     packages=find_packages(exclude=['tests']),
     include_package_data=True,
     exclude_package_data={'': ['README.md', 'CHANGELOG.txt']},
-    install_requires=['djangorestframework == 3.1.2', 'pyrecord == 1.0rc2'],
+    install_requires=['djangorestframework == 3.4.3', 'pyrecord == 1.0rc2'],
     )
