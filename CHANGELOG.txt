@@ -1,6 +1,12 @@
 Changelog
 =========
 
+Version 1.0 Release Candidate 3
+-------------------------------
+
+Added proper support for namespaced URLs
+
+
 Version 1.0 Release Candidate 1
 -------------------------------
 

@@ -1,11 +1,13 @@
+from django.conf.urls import include
+from django.conf.urls import url
 from django.core.urlresolvers import resolve
 from nose.tools import assert_raises
-from django.conf.urls import url
-from django.conf.urls import include
 from nose.tools import eq_
 from nose.tools import ok_
 from rest_framework.reverse import reverse
 from rest_framework.routers import SimpleRouter
+from rest_framework.test import APIRequestFactory
+from rest_framework.versioning import NamespaceVersioning
 
 from drf_nested_resources.routers import NestedResource
 from drf_nested_resources.routers import Resource
@@ -25,7 +27,6 @@ from tests.django_project.app.views import WebsiteVisitViewSet
 
 
 class TestURLPatternGeneration(TestCase):
-
     @staticmethod
     def test_default_router():
         resources = []
@@ -65,7 +66,7 @@ class TestURLPatternGeneration(TestCase):
             'developer-detail',
             kwargs={'developer': 1},
             urlconf=urlpatterns,
-            )
+        )
         eq_('/developers/1/', url_path2)
 
     @staticmethod
@@ -81,7 +82,7 @@ class TestURLPatternGeneration(TestCase):
             'software_developer-detail',
             kwargs={'software_developer': 1},
             urlconf=urlpatterns,
-            )
+        )
         eq_('/developers/1/', url_path2)
 
     @staticmethod
@@ -113,12 +114,11 @@ class TestURLPatternGeneration(TestCase):
             'language-list',
             kwargs={'developer': 1},
             urlconf=urlpatterns,
-            )
+        )
         eq_('/developers/1/languages/', url_path)
 
 
 class TestDispatch(FixtureTestCase):
-
     _RESOURCES = [
         Resource(
             'developer',
@@ -135,19 +135,19 @@ class TestDispatch(FixtureTestCase):
                             'visits',
                             WebsiteVisitViewSet,
                             parent_field_lookup='website__language',
-                            ),
+                        ),
                         NestedResource(
                             'version',
                             'versions',
                             ProgrammingLanguageVersionViewSet,
                             parent_field_lookup='language',
-                            ),
-                        ],
+                        ),
+                    ],
                     parent_field_lookup='author',
-                    ),
-                ],
-            ),
-        ]
+                ),
+            ],
+        ),
+    ]
 
     def test_parent_detail(self):
         urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
@@ -158,14 +158,14 @@ class TestDispatch(FixtureTestCase):
             'developer-detail',
             kwargs={'developer': self.developer1.pk},
             urlconf=urlpatterns,
-            )
+        )
         response = client.get(url_path)
         response_data = response.data
         expected_languages_url = reverse(
             'language-list',
             kwargs={'developer': self.developer1.pk},
             urlconf=urlpatterns,
-            )
+        )
         languages_url = response_data['programming_languages']
         ok_(languages_url.endswith(expected_languages_url))
         eq_(200, response.status_code)
@@ -198,7 +198,7 @@ class TestDispatch(FixtureTestCase):
             'developer-detail',
             kwargs={'developer': self.non_existing_developer_pk},
             urlconf=urlpatterns,
-            )
+        )
         response = client.get(url_path)
         eq_(404, response.status_code)
 
@@ -212,10 +212,27 @@ class TestDispatch(FixtureTestCase):
             kwargs={
                 'developer': self.developer1.pk,
                 'language': self.programming_language1.pk,
-                },
+            },
             urlconf=urlpatterns,
-            )
+        )
         response = client.get(url_path)
+        eq_(200, response.status_code)
+
+    def test_child_detail_inside_namespace(self):
+        namespace = 'v1'
+
+        api_urls = make_urlpatterns_from_resources(self._RESOURCES)
+        urlpatterns = _mount_urls_on_namespace(api_urls, namespace)
+
+        response = _make_request_to_namespaced_url(
+            namespace,
+            'language-detail',
+            {
+                'developer': self.developer1.pk,
+                'language': self.programming_language1.pk,
+            },
+            urlpatterns,
+        )
         eq_(200, response.status_code)
 
     def test_child_list(self):
@@ -227,7 +244,7 @@ class TestDispatch(FixtureTestCase):
             'language-list',
             kwargs={'developer': self.developer1.pk},
             urlconf=urlpatterns,
-            )
+        )
         response = client.get(url_path)
         eq_(200, response.status_code)
 
@@ -241,9 +258,9 @@ class TestDispatch(FixtureTestCase):
             kwargs={
                 'developer': self.developer1.pk,
                 'language': self.programming_language2.pk,
-                },
+            },
             urlconf=urlpatterns,
-            )
+        )
         response = client.get(url_path)
         eq_(404, response.status_code)
 
@@ -257,9 +274,9 @@ class TestDispatch(FixtureTestCase):
             kwargs={
                 'developer': self.non_existing_developer_pk,
                 'language': self.programming_language1.pk,
-                },
+            },
             urlconf=urlpatterns,
-            )
+        )
         response = client.get(url_path)
         eq_(404, response.status_code)
 
@@ -272,7 +289,7 @@ class TestDispatch(FixtureTestCase):
             'language-list',
             kwargs={'developer': self.non_existing_developer_pk},
             urlconf=urlpatterns,
-            )
+        )
         response = client.get(url_path)
         eq_(404, response.status_code)
 
@@ -288,10 +305,10 @@ class TestDispatch(FixtureTestCase):
                         'hosts',
                         WebsiteHostViewSet,
                         parent_field_lookup='websites',
-                        ),
-                    ],
-                ),
-            ]
+                    ),
+                ],
+            ),
+        ]
         urlpatterns = make_urlpatterns_from_resources(resources)
 
         client = TestClient(urlpatterns)
@@ -301,9 +318,9 @@ class TestDispatch(FixtureTestCase):
             kwargs={
                 'website': self.website.pk,
                 'host': self.website_host.pk,
-                },
+            },
             urlconf=urlpatterns,
-            )
+        )
 
         response = client.get(url_path)
         eq_(404, response.status_code)
@@ -320,10 +337,10 @@ class TestDispatch(FixtureTestCase):
                         'hosts',
                         WebsiteHostViewSet,
                         parent_field_lookup='websites',
-                        ),
-                    ],
-                ),
-            ]
+                    ),
+                ],
+            ),
+        ]
         urlpatterns = make_urlpatterns_from_resources(resources)
 
         client = TestClient(urlpatterns)
@@ -332,9 +349,9 @@ class TestDispatch(FixtureTestCase):
             'host-list',
             kwargs={
                 'website': self.website.pk,
-                },
+            },
             urlconf=urlpatterns,
-            )
+        )
 
         response = client.get(url_path)
         eq_(404, response.status_code)
@@ -349,9 +366,9 @@ class TestDispatch(FixtureTestCase):
             kwargs={
                 'developer': self.developer1.pk,
                 'language': self.non_existing_developer_pk,
-                },
+            },
             urlconf=urlpatterns,
-            )
+        )
         response = client.get(url_path)
         eq_(404, response.status_code)
 
@@ -366,9 +383,9 @@ class TestDispatch(FixtureTestCase):
                 'developer': self.developer1.pk,
                 'language': self.programming_language1.pk,
                 'version': self.programming_language_version.pk,
-                },
+            },
             urlconf=urlpatterns,
-            )
+        )
         response = client.get(url_path)
         eq_(200, response.status_code)
 
@@ -383,9 +400,9 @@ class TestDispatch(FixtureTestCase):
                 'developer': self.non_existing_developer_pk,
                 'language': self.programming_language1.pk,
                 'version': self.programming_language_version.pk,
-                },
+            },
             urlconf=urlpatterns,
-            )
+        )
         response = client.get(url_path)
         eq_(404, response.status_code)
 
@@ -401,10 +418,10 @@ class TestDispatch(FixtureTestCase):
                         'versions',
                         ProgrammingLanguageVersionViewSet,
                         parent_field_lookup='language__author',
-                        ),
-                    ],
-                ),
-            ]
+                    ),
+                ],
+            ),
+        ]
         urlpatterns = make_urlpatterns_from_resources(resources)
 
         client = TestClient(urlpatterns)
@@ -414,9 +431,9 @@ class TestDispatch(FixtureTestCase):
             kwargs={
                 'developer': self.developer1.pk,
                 'version': self.programming_language_version.pk,
-                },
+            },
             urlconf=urlpatterns,
-            )
+        )
         response = client.get(url_path)
         eq_(200, response.status_code)
 
@@ -438,8 +455,8 @@ class TestDispatch(FixtureTestCase):
                                 'visits',
                                 WebsiteVisitViewSet,
                                 parent_field_lookup='website__language',
-                                ),
-                            ],
+                            ),
+                        ],
                         parent_field_lookup='author',
                     ),
                 ],
@@ -455,9 +472,9 @@ class TestDispatch(FixtureTestCase):
                 'developer': self.developer1.pk,
                 'language': self.programming_language1.pk,
                 'visit': visit.pk,
-                },
+            },
             urlconf=urlpatterns,
-            )
+        )
         response = client.get(url_path)
         eq_(200, response.status_code)
 
@@ -473,10 +490,10 @@ class TestDispatch(FixtureTestCase):
                         'hosts',
                         WebsiteHostViewSet,
                         parent_field_lookup='websites',
-                        ),
-                    ],
-                ),
-            ]
+                    ),
+                ],
+            ),
+        ]
         urlpatterns = make_urlpatterns_from_resources(resources)
 
         client = TestClient(urlpatterns)
@@ -486,9 +503,9 @@ class TestDispatch(FixtureTestCase):
             kwargs={
                 'website': self.website.pk,
                 'host': self.website_host.pk,
-                },
+            },
             urlconf=urlpatterns,
-            )
+        )
         response = client.get(url_path)
         eq_(200, response.status_code)
 
@@ -504,10 +521,10 @@ class TestDispatch(FixtureTestCase):
                         'websites',
                         WebsiteViewSet,
                         parent_field_lookup='hosts',
-                        ),
-                    ],
-                ),
-            ]
+                    ),
+                ],
+            ),
+        ]
         urlpatterns = make_urlpatterns_from_resources(resources)
 
         client = TestClient(urlpatterns)
@@ -517,14 +534,38 @@ class TestDispatch(FixtureTestCase):
             kwargs={
                 'website': self.website.pk,
                 'host': self.website_host.pk,
-                },
+            },
             urlconf=urlpatterns,
-            )
+        )
         response = client.get(url_path)
         eq_(200, response.status_code)
 
 
 class _WebsiteViewSetWithCustomGetQueryset(WebsiteViewSet):
-
     def get_queryset(self):
         return Website.objects.none()
+
+
+def _mount_urls_on_namespace(urls, namespace):
+    urls = list(urls)
+    urlpatterns = (
+        url(r'^{}/'.format(namespace), include(urls, namespace=namespace)),
+    )
+    return urlpatterns
+
+
+def _make_request_to_namespaced_url(namespace, url_name, url_kwargs, urlconf):
+    request_factory = APIRequestFactory(SERVER_NAME='example.org')
+    request = request_factory.get('/')
+    request.versioning_scheme = NamespaceVersioning()
+    request.version = namespace
+    url_path = reverse(
+        url_name,
+        kwargs=url_kwargs,
+        urlconf=urlconf,
+        request=request,
+    )
+
+    client = TestClient(urlconf)
+    response = client.get(url_path)
+    return response

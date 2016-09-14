@@ -28,6 +28,11 @@ DEBUG = False
 ALLOWED_HOSTS = ['.example.org']
 
 
+REST_FRAMEWORK = {
+    'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.NamespaceVersioning',
+}
+
+
 # Application definition
 
 INSTALLED_APPS = (
