@@ -1,6 +1,6 @@
 ##############################################################################
 #
-# Copyright (c) 2015, 2degrees Limited.
+# Copyright (c) 2015-2016, 2degrees Limited.
 # All Rights Reserved.
 #
 # This file is part of drf-nested-resources
