@@ -40,6 +40,7 @@ from drf_nested_resources import DETAIL_VIEW_NAME_SUFFIX
 from drf_nested_resources import LIST_VIEW_NAME_SUFFIX
 from drf_nested_resources._forged_request import RequestForger
 
+
 Resource = Record.create_type(
     'Resource',
     'name',
@@ -60,7 +61,7 @@ _RelationalRoute = Record.create_type(
     'collection_name',
     'viewset',
     'ancestor_lookup_by_resource_name',
-    'ancestor_collection_name_by_resource_name'
+    'ancestor_collection_name_by_resource_name',
 )
 
 _VALID_PYTHON_IDENTIFIER_RE = compile_regex(r"^[a-z_]\w*$", IGNORECASE)
