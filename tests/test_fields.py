@@ -267,7 +267,7 @@ class TestRelatedLinkedField(FixtureTestCase):
             django_request,
             source_view_name,
             destination_view_name,
-            self.programming_language_version,
+            self.programming_language1.versions,
         )
         expected_url = self._make_url_with_kwargs(
             django_request,
