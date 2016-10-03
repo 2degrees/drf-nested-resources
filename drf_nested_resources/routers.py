@@ -20,6 +20,7 @@ from re import IGNORECASE
 from re import compile as compile_regex
 
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 from django.db.models.constants import LOOKUP_SEP
 from django.db.models.fields.related import ForeignKey
 from django.db.models.fields.related import ManyToManyField
@@ -264,19 +265,7 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
         def __init__(self, *args, **kwargs):
             relational_routes = kwargs.pop('relational_routes', ())
             super(NestedViewSet, self).__init__(*args, **kwargs)
-            self._relational_routes = relational_routes
-            urlvars_by_view_name = {}
-            for route in self.relational_routes:
-                detail_route_name = route.name + DETAIL_VIEW_NAME_SUFFIX
-                list_route_name = route.name + LIST_VIEW_NAME_SUFFIX
-                ancestor_urlvars = tuple(
-                    route.ancestor_collection_name_by_resource_name.keys(),
-                )
-
-                urlvars_by_view_name[list_route_name] = \
-                    ancestor_urlvars[:-1]
-                urlvars_by_view_name[detail_route_name] = ancestor_urlvars
-            self._urlvars_by_view_name = urlvars_by_view_name
+            self._url_generator = _URLGenerator(relational_routes)
 
         @property
         def relational_routes(self):
@@ -288,7 +277,7 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
 
             class NestedSerializer(base_serializer_class):
                 class Meta(base_serializer_class.Meta):
-                    urlvars_by_view_name = self._urlvars_by_view_name
+                    url_generator = self._url_generator
 
                     resource_name = flattened_resource.name
 
@@ -337,7 +326,7 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
                 getattr(request._request, 'urlconf', settings.ROOT_URLCONF)
 
             parent_detail_view_url = \
-                self._get_parent_resource_detail_view_url(urlconf, request)
+                self._get_parent_resource_detail_view_url(request)
 
             if parent_detail_view_url:
                 request_forger = \
@@ -349,7 +338,7 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
 
             return status_code
 
-        def _get_parent_resource_detail_view_url(self, urlconf, request):
+        def _get_parent_resource_detail_view_url(self, request):
             ancestors_and_lookups = \
                 _get_resource_ancestors_and_lookups(flattened_resource)
             try:
@@ -357,16 +346,24 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
             except StopIteration:
                 return
 
+            parent_model_class = \
+                self._url_generator.get_model_class_for_resource(
+                    parent_base_name,
+                )
+            parent_object_pk = self.kwargs[parent_base_name]
+
+            try:
+                parent_model_instance = parent_model_class.objects.get(
+                    pk=parent_object_pk,
+                )
+            except ObjectDoesNotExist as exc:
+                raise Http404() from exc
+
             parent_detail_view_name = parent_base_name + DETAIL_VIEW_NAME_SUFFIX
-            parent_detail_view_urlvar_names = \
-                self._urlvars_by_view_name[parent_detail_view_name]
-            parent_detail_view_urlvars = \
-                {k: self.kwargs[k] for k in parent_detail_view_urlvar_names}
-            parent_detail_view_url = reverse(
+            parent_detail_view_url = self._url_generator(
                 parent_detail_view_name,
-                kwargs=parent_detail_view_urlvars,
-                urlconf=urlconf,
-                request=request,
+                parent_model_instance,
+                request,
             )
             return parent_detail_view_url
 
@@ -378,3 +375,93 @@ def _get_resource_ancestors_and_lookups(flattened_resource):
     resource_names_and_lookups = \
         tuple(flattened_resource.ancestor_lookup_by_resource_name.items())
     return reversed(resource_names_and_lookups)
+
+
+class _URLGenerator:
+
+    def __init__(self, relational_routes):
+        super(_URLGenerator, self).__init__()
+
+        self._relational_route_by_resource_name = \
+            {r.name: r for r in relational_routes}
+
+    def get_model_class_for_resource(self, resource_name):
+        relational_route = \
+            self._relational_route_by_resource_name[resource_name]
+        viewset = relational_route.viewset
+        model_class = viewset.queryset.model
+        return model_class
+
+    def __call__(self, view_name, leaf_resource_object, request, format_=None):
+        resource_name, separator, view_type = view_name.partition('-')
+        view_name_suffix = '{}{}'.format(separator, view_type)
+        self._assert_valid_view_name_suffix(view_name_suffix)
+
+        resource_name, relation_route = \
+            self._resolve_resource_and_relationships(
+                resource_name,
+                view_name_suffix,
+            )
+
+        request_kwargs = request.parser_context['kwargs']
+        view_kwargs = self._build_view_kwargs(
+            leaf_resource_object,
+            resource_name,
+            relation_route,
+            request_kwargs,
+        )
+        url = reverse(
+            view_name,
+            kwargs=view_kwargs,
+            request=request,
+            urlconf=request.urlconf,
+            format=format_,
+        )
+        return url
+
+    def _resolve_resource_and_relationships(
+        self,
+        resource_name,
+        view_name_suffix,
+    ):
+        relation_route = self._relational_route_by_resource_name[resource_name]
+        if view_name_suffix == LIST_VIEW_NAME_SUFFIX:
+            # For collection views, we must start with the parent resource,
+            # which will not named after `view_name`
+            ancestor_resource_names = \
+                list(relation_route.ancestor_lookup_by_resource_name.keys())
+            resource_name = ancestor_resource_names[-1]
+            relation_route = \
+                self._relational_route_by_resource_name[resource_name]
+        return resource_name, relation_route
+
+    @staticmethod
+    def _build_view_kwargs(
+        leaf_resource_object,
+        leaf_resource_name,
+        relation_route,
+        request_kwargs,
+    ):
+        current_object = leaf_resource_object
+        view_kwargs = {leaf_resource_name: leaf_resource_object.pk}
+        resource_names_and_parent_lookups = \
+            reversed(relation_route.ancestor_lookup_by_resource_name.items())
+
+        has_used_request_kwargs = False
+        for resource_name, parent_lookup in resource_names_and_parent_lookups:
+            if resource_name in request_kwargs:
+                view_kwarg_value = request_kwargs[resource_name]
+                has_used_request_kwargs = True
+            else:
+                assert not has_used_request_kwargs, \
+                    'The kwargs on request are malformed'
+                current_object = getattr(current_object, parent_lookup)
+                view_kwarg_value = current_object.pk
+            view_kwargs[resource_name] = view_kwarg_value
+        return view_kwargs
+
+    @staticmethod
+    def _assert_valid_view_name_suffix(view_name_suffix):
+        valid_suffixes = (DETAIL_VIEW_NAME_SUFFIX, LIST_VIEW_NAME_SUFFIX)
+        assert view_name_suffix in valid_suffixes, \
+            'view name suffix must be one of {}'.format(valid_suffixes)

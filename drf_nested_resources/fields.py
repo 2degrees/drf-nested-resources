@@ -24,69 +24,52 @@ from drf_nested_resources import LIST_VIEW_NAME_SUFFIX
 
 class HyperlinkedNestedRelatedField(HyperlinkedRelatedField):
 
-    def __init__(self, view_name=None, urlvars_by_view_name=None, **kwargs):
+    def __init__(self, view_name=None, url_generator=None, **kwargs):
         super(HyperlinkedNestedRelatedField, self).__init__(
             view_name=view_name,
             **kwargs
             )
-        assert urlvars_by_view_name, 'urlvars_by_view_name cannot be empty!'
-        self.urlvars_by_view_name = urlvars_by_view_name
+        self._url_generator = url_generator
+
+    def use_pk_only_optimization(self):
+        # Ensure that we never get PKOnlyObject in get_url since we require the
+        # full instance
+        return False
 
     def get_url(self, obj, view_name, request, format):
         if hasattr(obj, 'pk'):
-            pk = obj.pk
+            leaf_resource_object = obj
+            if obj.pk is None:
+                return None
+
         elif hasattr(obj, 'instance'):
-            pk = obj.instance.pk
+            leaf_resource_object = obj.instance
         else:
             assert False, 'unsupported type for obj {!r}'.format(type(obj))
 
-        if pk is None:
-            return None
-
-        current_view_kwargs = request.parser_context['kwargs']
-
-        view_urlvars = self.urlvars_by_view_name[view_name]
-        kwargs = {}
-        for resource_name in view_urlvars:
-            kwargs[resource_name] = current_view_kwargs.get(resource_name, pk)
-
-        url = self.reverse(
+        url = self._url_generator(
             view_name,
-            kwargs=kwargs,
-            request=request,
-            format=format,
-            )
+            leaf_resource_object,
+            request,
+            format,
+        )
         return url
 
 
 class HyperlinkedNestedIdentityField(HyperlinkedIdentityField):
 
-    def __init__(self, view_name=None, urlvars_by_view_name=None, **kwargs):
+    def __init__(self, view_name=None, url_generator=None, **kwargs):
         super(HyperlinkedNestedIdentityField, self).__init__(
             view_name=view_name,
             **kwargs
             )
-        assert urlvars_by_view_name, 'urlvars_by_view_name cannot be empty!'
-        self.urlvars_by_view_name = urlvars_by_view_name
+        self._url_generator = url_generator
 
     def get_url(self, obj, view_name, request, format):
         if obj.pk is None:
             return None
 
-        current_view_kwargs = request.parser_context['kwargs']
-        view_urlvars = self.urlvars_by_view_name[view_name]
-        kwargs = {}
-        for resource_name in view_urlvars:
-            kwargs[resource_name] = \
-                current_view_kwargs.get(resource_name, obj.pk)
-
-        url = self.reverse(
-            view_name,
-            kwargs=kwargs,
-            request=request,
-            format=format,
-            )
-        return url
+        return self._url_generator(view_name, obj, request, format)
 
 
 class HyperlinkedNestedModelSerializer(HyperlinkedModelSerializer):
@@ -103,7 +86,7 @@ class HyperlinkedNestedModelSerializer(HyperlinkedModelSerializer):
                 )
         field_kwargs['view_name'] = \
             self.Meta.resource_name + DETAIL_VIEW_NAME_SUFFIX
-        field_kwargs['urlvars_by_view_name'] = self.Meta.urlvars_by_view_name
+        field_kwargs['url_generator'] = self.Meta.url_generator
 
         return field_class, field_kwargs
 
@@ -120,5 +103,5 @@ class HyperlinkedNestedModelSerializer(HyperlinkedModelSerializer):
 
         view_name = self.Meta.view_names_by_relationship[field_name]
         field_kwargs['view_name'] = view_name + view_name_suffix
-        field_kwargs['urlvars_by_view_name'] = self.Meta.urlvars_by_view_name
+        field_kwargs['url_generator'] = self.Meta.url_generator
         return field_class, field_kwargs

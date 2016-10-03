@@ -1,12 +1,12 @@
+from django.core.urlresolvers import set_urlconf
 from django.db.models import Max
 from django.test.testcases import TestCase as DjangoTestCase
-from django.urls import set_urlconf
 
 from tests.django_project.app.models import Developer
-from tests.django_project.app.models import WebsiteHost
-from tests.django_project.app.models import Website
 from tests.django_project.app.models import ProgrammingLanguage
 from tests.django_project.app.models import ProgrammingLanguageVersion
+from tests.django_project.app.models import Website
+from tests.django_project.app.models import WebsiteHost
 
 
 class TestCase(DjangoTestCase):

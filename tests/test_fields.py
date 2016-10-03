@@ -1,8 +1,9 @@
-from functools import partial
+from abc import ABCMeta, abstractproperty
 
+from django.core.urlresolvers import resolve
 from nose.tools import assert_is_none, assert_in
+from nose.tools import assert_raises
 from nose.tools import eq_
-from rest_framework.relations import PKOnlyObject
 from rest_framework.request import Request
 from rest_framework.reverse import reverse
 from rest_framework.test import APIRequestFactory
@@ -14,84 +15,23 @@ from drf_nested_resources.fields import HyperlinkedNestedRelatedField
 from drf_nested_resources.routers import NestedResource
 from drf_nested_resources.routers import Resource
 from drf_nested_resources.routers import make_urlpatterns_from_resources
+
 from tests._testcases import FixtureTestCase
-from tests._testcases import TestCase
-from tests.django_project.app.models import ProgrammingLanguageVersion, \
-    Developer, ProgrammingLanguage
+from tests.django_project.app.models import Developer, ProgrammingLanguage
 from tests.django_project.app.views import DeveloperViewSet
 from tests.django_project.app.views import ProgrammingLanguageVersionViewSet
 from tests.django_project.app.views import ProgrammingLanguageViewSet
 
 
-class TestIdentityField(TestCase):
-    _SOURCE_VIEW_NAME = 'children'
-
-    _DESTINATION_VIEW_NAME = 'child'
-
-    _URLVARS_BY_VIEW_NAME = \
-        {'children': ('parent',), 'child': ('parent', 'child')}
-
-    def setUp(self):
-        super(TestIdentityField, self).setUp()
-        self._django_request = _make_django_request(
-            self._SOURCE_VIEW_NAME,
-            {'parent': 'foo'},
-            'tests.django_project.urls',
-        )
-
-    def test_url_generation(self):
-        url = self._make_url_with_kwargs_via_field('foo')
-        expected_url = self._make_url_with_kwargs('foo')
-        eq_(expected_url, url)
-
-    def test_url_generation_with_explicit_format(self):
-        url = self._make_url_with_kwargs_via_field('foo', 'xml')
-        expected_url = self._make_url_with_kwargs('foo', 'xml')
-        eq_(expected_url, url)
-
-    def test_unsaved_resource(self):
-        url = self._make_url_with_kwargs_via_field(None)
-        assert_is_none(url)
-
-    def _make_url_with_kwargs_via_field(self, pk, format_=None):
-        object_ = PKOnlyObject(pk)
-        drf_request = _make_drf_request(self._django_request)
-        field = HyperlinkedNestedIdentityField(
-            self._SOURCE_VIEW_NAME,
-            self._URLVARS_BY_VIEW_NAME,
-        )
-        url = field.get_url(
-            object_,
-            self._DESTINATION_VIEW_NAME,
-            drf_request,
-            format_,
-        )
-        return url
-
-    def _make_url_with_kwargs(self, pk, format_=None):
-        source_view_kwargs = self._django_request.resolver_match[2]
-        destination_view_kwargs = dict(source_view_kwargs, child=pk)
-        url_path = reverse(
-            self._DESTINATION_VIEW_NAME,
-            kwargs=destination_view_kwargs,
-            format=format_,
-        )
-        url = self._django_request.build_absolute_uri(url_path)
-        return url
+_REQUEST_FACTORY = APIRequestFactory(SERVER_NAME='example.org')
 
 
-class TestRelatedLinkedField(FixtureTestCase):
-    _URLVARS_BY_VIEW_NAME = {
-        'developer-list': (),
-        'developer-detail': ('developer',),
-        'language-list': ('developer',),
-        'language-detail': ('language', 'developer'),
-        'version-list': ('language', 'developer'),
-        'version-detail': ('version', 'language', 'developer'),
-    }
+class _BaseHyperlinkedFieldTestCase(FixtureTestCase, metaclass=ABCMeta):
+
+    FIELD_CLASS = abstractproperty()
 
     def setUp(self):
-        super(TestRelatedLinkedField, self).setUp()
+        super(_BaseHyperlinkedFieldTestCase, self).setUp()
 
         self.resources = [
             Resource(
@@ -118,274 +58,245 @@ class TestRelatedLinkedField(FixtureTestCase):
         ]
         self.urlpatterns = make_urlpatterns_from_resources(self.resources)
 
-    def test_parent_detail(self):
-        source_view_name = 'language-detail'
-        destination_view_name = 'developer-detail'
-
-        django_request = _make_django_request(
-            source_view_name,
-            {
-                'developer': self.developer1.pk,
-                'language': self.programming_language1.pk,
-            },
-            self.urlpatterns,
-        )
-        url = self._make_url_via_field(
-            django_request,
-            source_view_name,
-            destination_view_name,
-            self.developer1,
-        )
-        expected_url = self._make_url_with_kwargs(
-            django_request,
-            destination_view_name,
-            {'developer': self.developer1.pk},
-        )
-        eq_(expected_url, url)
-
-    def test_parent_list(self):
-        source_view_name = 'language-detail'
-        destination_view_name = 'developer-list'
-
-        django_request = _make_django_request(
-            source_view_name,
-            {
-                'developer': self.developer1.pk,
-                'language': self.programming_language1.pk,
-            },
-            self.urlpatterns,
-        )
-        url = self._make_url_via_field(
-            django_request,
-            source_view_name,
-            destination_view_name,
-            self.developer1,
-        )
-        expected_url = self._make_url_with_kwargs(
-            django_request,
-            destination_view_name,
-            {},
-        )
-        eq_(expected_url, url)
-
-    def test_grandparent_detail(self):
-        source_view_name = 'version-detail'
-        destination_view_name = 'developer-detail'
-
-        django_request = _make_django_request(
-            source_view_name,
-            {
-                'developer': self.developer1.pk,
-                'language': self.programming_language1.pk,
-                'version': self.programming_language_version.pk,
-            },
-            self.urlpatterns,
-        )
-        url = self._make_url_via_field(
-            django_request,
-            source_view_name,
-            destination_view_name,
-            self.developer1,
-        )
-        expected_url = self._make_url_with_kwargs(
-            django_request,
-            destination_view_name,
-            {'developer': self.developer1.pk},
-        )
-        eq_(expected_url, url)
-
-    def test_grandparent_list(self):
-        source_view_name = 'version-detail'
-        destination_view_name = 'developer-list'
-
-        django_request = _make_django_request(
-            source_view_name,
-            {
-                'developer': self.developer1.pk,
-                'language': self.programming_language1.pk,
-                'version': self.programming_language_version.pk,
-            },
-            self.urlpatterns,
-        )
-        url = self._make_url_via_field(
-            django_request,
-            source_view_name,
-            destination_view_name,
-            self.developer1,
-        )
-        expected_url = self._make_url_with_kwargs(
-            django_request,
-            destination_view_name,
-            {},
-        )
-        eq_(expected_url, url)
-
-    def test_child_detail(self):
-        source_view_name = 'language-detail'
-        destination_view_name = 'version-detail'
-
-        django_request = _make_django_request(
-            source_view_name,
-            {
-                'developer': self.developer1.pk,
-                'language': self.programming_language1.pk,
-            },
-            self.urlpatterns,
-        )
-
-        url = self._make_url_via_field(
-            django_request,
-            source_view_name,
-            destination_view_name,
-            self.programming_language_version,
-        )
-        expected_url = self._make_url_with_kwargs(
-            django_request,
-            destination_view_name,
-            {
-                'developer': self.developer1.pk,
-                'language': self.programming_language1.pk,
-                'version': self.programming_language_version.pk,
-            },
-        )
-        eq_(expected_url, url)
-
-    def test_child_list(self):
-        source_view_name = 'language-detail'
-        destination_view_name = 'version-list'
-
-        django_request = _make_django_request(
-            source_view_name,
-            {
-                'developer': self.developer1.pk,
-                'language': self.programming_language1.pk,
-            },
-            self.urlpatterns,
-        )
-
-        url = self._make_url_via_field(
-            django_request,
-            source_view_name,
-            destination_view_name,
-            self.programming_language1.versions,
-        )
-        expected_url = self._make_url_with_kwargs(
-            django_request,
-            destination_view_name,
-            {
-                'developer': self.developer1.pk,
-                'language': self.programming_language1.pk,
-            },
-        )
-        eq_(expected_url, url)
-
-    def test_unsaved_child(self):
-        source_view_name = 'language-detail'
-        destination_view_name = 'version-detail'
-
-        django_request = _make_django_request(
-            source_view_name,
-            {
-                'developer': self.developer1.pk,
-                'language': self.programming_language1.pk,
-            },
-            self.urlpatterns,
-        )
-
-        url = self._make_url_via_field(
-            django_request,
-            source_view_name,
-            destination_view_name,
-            ProgrammingLanguageVersion(language=self.programming_language1),
-        )
-        assert_is_none(url)
-
-    def test_url_generation_with_explicit_format(self):
-        source_view_name = 'language-detail'
-        destination_view_name = 'developer-detail'
-        format = 'xml'
-
-        django_request = _make_django_request(
-            source_view_name,
-            {
-                'developer': self.developer1.pk,
-                'language': self.programming_language1.pk,
-            },
-            self.urlpatterns,
-        )
-        url = self._make_url_via_field(
-            django_request,
-            source_view_name,
-            destination_view_name,
-            self.developer1,
-            format,
-        )
-        expected_url = self._make_url_with_kwargs(
-            django_request,
-            destination_view_name,
-            {'developer': self.developer1.pk},
-            format,
-        )
-        eq_(expected_url, url)
-
     def _make_url_via_field(
         self,
-        django_request,
-        source_view_name,
         destination_view_name,
         destination_view_object,
-        format=None,
+        source_view_name='developer-list',
+        source_view_kwargs=None,
+        format_=None,
     ):
-        drf_request = _make_drf_request(django_request)
-
-        field = HyperlinkedNestedRelatedField(
+        django_request = self._make_django_request(
             source_view_name,
-            self._URLVARS_BY_VIEW_NAME,
+            source_view_kwargs or {},
+        )
+        drf_request = self._make_drf_request(django_request)
+
+        url_generator = self._get_url_generator(drf_request, format_)
+        field = self.FIELD_CLASS(
+            source_view_name,
+            url_generator=url_generator,
             read_only=True,
         )
-        field.reverse = partial(reverse, urlconf=self.urlpatterns)
 
         url = field.get_url(
             destination_view_object,
             destination_view_name,
             drf_request,
-            format,
+            format_,
         )
         return url
 
-    def _make_url_with_kwargs(
-        self,
-        django_request,
-        view_name,
-        view_kwargs,
-        format=None,
-    ):
+    def _get_url_generator(self, drf_request, format_):
+        url = reverse('developer-list', urlconf=self.urlpatterns)
+        view_func = resolve(url, self.urlpatterns).func
+        viewset = view_func.cls(
+            request=drf_request,
+            format_kwarg=format_,
+            **view_func.initkwargs,
+        )
+        serializer = viewset.get_serializer()
+        url_generator = serializer.Meta.url_generator
+        return url_generator
+
+    def _make_url_with_kwargs(self, view_name, view_kwargs, format_=None):
+        django_request = _REQUEST_FACTORY.get('/')
         url_path = reverse(
             view_name,
             kwargs=view_kwargs,
             urlconf=self.urlpatterns,
-            format=format,
+            format=format_,
         )
         url = django_request.build_absolute_uri(url_path)
         return url
 
+    def _make_django_request(self, view_name, view_kwargs):
+        url_path = \
+            reverse(view_name, kwargs=view_kwargs, urlconf=self.urlpatterns)
+        django_request = _REQUEST_FACTORY.get(url_path)
+        django_request.resolver_match = (view_name, (), view_kwargs)
+        django_request.urlconf = self.urlpatterns
+        return django_request
+
+    @staticmethod
+    def _make_drf_request(django_request):
+        view_kwargs = django_request.resolver_match[2]
+        drf_request = \
+            Request(django_request, parser_context={'kwargs': view_kwargs})
+        return drf_request
+
+
+class TestIdentityField(_BaseHyperlinkedFieldTestCase):
+
+    FIELD_CLASS = HyperlinkedNestedIdentityField
+
+    VIEW_NAME = 'developer-detail'
+
+    def test_url_generation(self):
+        url = self._make_url_via_field(self.VIEW_NAME, self.developer1)
+        expected_url = self._make_url_with_kwargs(self.developer1)
+        eq_(expected_url, url)
+
+    def test_url_generation_with_explicit_format(self):
+        url = self._make_url_via_field(
+            self.VIEW_NAME,
+            self.developer1,
+            format_='xml',
+        )
+        expected_url = self._make_url_with_kwargs(self.developer1, 'xml')
+        eq_(expected_url, url)
+
+    def test_unsaved_resource(self):
+        url = self._make_url_via_field(self.VIEW_NAME, Developer())
+        assert_is_none(url)
+
+    def _make_url_with_kwargs(self, object_, format_=None):
+        url = super(TestIdentityField, self)._make_url_with_kwargs(
+            self.VIEW_NAME,
+            {'developer': object_.pk},
+            format_,
+        )
+        return url
+
+
+class TestRelatedLinkedFieldURLGeneration(_BaseHyperlinkedFieldTestCase):
+
+    FIELD_CLASS = HyperlinkedNestedRelatedField
+
+    def test_top_level_resource(self):
+        view_name = 'developer-detail'
+        url_generated = self._make_url_via_field(view_name, self.developer1)
+        url_expected = self._make_url_with_kwargs(
+            view_name,
+            {'developer': self.developer1.pk},
+        )
+        eq_(url_expected, url_generated)
+
+    def test_nested_collection(self):
+        view_name = 'language-list'
+        url_generated = self._make_url_via_field(
+            view_name,
+            self.developer1.programming_languages,
+        )
+        url_expected = self._make_url_with_kwargs(
+            view_name,
+            {'developer': self.developer1.pk},
+        )
+        eq_(url_expected, url_generated)
+
+    def test_nested_resource(self):
+        programming_language = self.programming_language1
+        view_name = 'language-detail'
+        url_generated = self._make_url_via_field(
+            view_name,
+            programming_language,
+        )
+        url_expected = self._make_url_with_kwargs(
+            view_name,
+            {
+                'developer': programming_language.author.pk,
+                'language': programming_language.pk,
+            },
+        )
+        eq_(url_expected, url_generated)
+
+    def test_sub_nested_collection(self):
+        view_name = 'version-list'
+        url_generated = self._make_url_via_field(
+            view_name,
+            self.programming_language1.versions,
+        )
+        url_expected = self._make_url_with_kwargs(
+            view_name,
+            {
+                'developer': self.developer1.pk,
+                'language': self.programming_language1.pk,
+            },
+        )
+        eq_(url_expected, url_generated)
+
+    def test_sub_nested_resource(self):
+        version = self.programming_language_version
+        view_name = 'version-detail'
+        url_generated = self._make_url_via_field(view_name, version)
+        url_expected = self._make_url_with_kwargs(
+            view_name,
+            {
+                'developer': version.language.author.pk,
+                'language': version.language.pk,
+                'version': version.pk
+            },
+        )
+        eq_(url_expected, url_generated)
+
+    def test_view_kwargs_from_request(self):
+        source_view_name = 'version-detail'
+
+        version = self.programming_language_version
+        source_view_kwargs = {
+            'developer': self.non_existing_developer_pk,
+            'language': version.language.pk,
+            'version': version.pk
+        }
+
+        destination_view_name = 'language-detail'
+        destination_view_kwargs = {
+            'developer': self.non_existing_developer_pk,
+            'language': version.language.pk,
+        }
+
+        url_generated = self._make_url_via_field(
+            destination_view_name,
+            version.language,
+            source_view_name,
+            source_view_kwargs,
+        )
+        url_expected = self._make_url_with_kwargs(
+            destination_view_name,
+            destination_view_kwargs,
+        )
+        eq_(url_expected, url_generated)
+
+    def test_unsaved_resource(self):
+        view_name = 'developer-detail'
+        url_generated = self._make_url_via_field(view_name, Developer())
+        assert_is_none(url_generated)
+
+    def test_format(self):
+        view_name = 'developer-detail'
+        format_ = 'json'
+        url_generated = self._make_url_via_field(
+            view_name,
+            self.developer1,
+            format_=format_,
+        )
+        url_expected = self._make_url_with_kwargs(
+            view_name,
+            {'developer': self.developer1.pk},
+            format_,
+        )
+        eq_(url_expected, url_generated)
+
+    def test_unsupported_object(self):
+        view_name = 'developer-detail'
+        assert_raises(
+            AssertionError,
+            self._make_url_via_field,
+            view_name,
+            object(),
+        )
+
+    def test_illegal_view_type(self):
+        view_name = 'developer-foo'
+        assert_raises(
+            AssertionError,
+            self._make_url_via_field,
+            view_name,
+            self.developer1,
+        )
+
 
 class TestSerializerURLFieldGeneration(FixtureTestCase):
-    _RESOURCES = [
-        Resource(
-            'developer',
-            'developers',
-            DeveloperViewSet,
-            [
-                NestedResource(
-                    'language',
-                    'languages',
-                    ProgrammingLanguageViewSet,
-                    parent_field_lookup='author',
-                ),
-            ],
-        ),
-    ]
 
     def test_identity_field(self):
         serializer = _DeveloperSerializer(instance=self.developer1)
@@ -395,10 +306,10 @@ class TestSerializerURLFieldGeneration(FixtureTestCase):
 
         assert_in('view_name', field_kwargs)
         eq_('developer-detail', field_kwargs['view_name'])
-        assert_in('urlvars_by_view_name', field_kwargs)
+        assert_in('url_generator', field_kwargs)
         eq_(
-            _DeveloperSerializer.Meta.urlvars_by_view_name,
-            field_kwargs['urlvars_by_view_name'],
+            _DeveloperSerializer.Meta.url_generator,
+            field_kwargs['url_generator'],
         )
 
     def test_related_resource(self):
@@ -414,10 +325,10 @@ class TestSerializerURLFieldGeneration(FixtureTestCase):
 
         assert_in('view_name', field_kwargs)
         eq_('developer-detail', field_kwargs['view_name'])
-        assert_in('urlvars_by_view_name', field_kwargs)
+        assert_in('url_generator', field_kwargs)
         eq_(
-            serializer.Meta.urlvars_by_view_name,
-            field_kwargs['urlvars_by_view_name'],
+            serializer.Meta.url_generator,
+            field_kwargs['url_generator'],
         )
 
     def test_related_resource_collection(self):
@@ -434,37 +345,22 @@ class TestSerializerURLFieldGeneration(FixtureTestCase):
 
         assert_in('view_name', field_kwargs)
         eq_('language-list', field_kwargs['view_name'])
-        assert_in('urlvars_by_view_name', field_kwargs)
+        assert_in('url_generator', field_kwargs)
         eq_(
-            serializer.Meta.urlvars_by_view_name,
-            field_kwargs['urlvars_by_view_name'],
+            serializer.Meta.url_generator,
+            field_kwargs['url_generator'],
         )
 
 
 class _DeveloperSerializer(HyperlinkedNestedModelSerializer):
     class Meta:
         resource_name = 'developer'
-        urlvars_by_view_name = {'developer': []}
+        url_generator = lambda *args: None
         view_names_by_relationship = {'programming_languages': 'language'}
 
 
 class _ProgrammingLanguageSerializer(HyperlinkedNestedModelSerializer):
     class Meta:
         resource_name = 'language'
-        urlvars_by_view_name = {'language': []}
+        url_generator = lambda *args: None
         view_names_by_relationship = {'author': 'developer'}
-
-
-def _make_django_request(view_name, view_kwargs, urlconf=None):
-    request_factory = APIRequestFactory(SERVER_NAME='example.org')
-    url_path = reverse(view_name, kwargs=view_kwargs, urlconf=urlconf)
-    django_request = request_factory.get(url_path)
-    django_request.resolver_match = (view_name, (), view_kwargs)
-    return django_request
-
-
-def _make_drf_request(django_request):
-    view_kwargs = django_request.resolver_match[2]
-    drf_request = \
-        Request(django_request, parser_context={'kwargs': view_kwargs})
-    return drf_request
