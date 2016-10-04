@@ -414,7 +414,7 @@ class _URLGenerator:
             view_name,
             kwargs=view_kwargs,
             request=request,
-            urlconf=request.urlconf,
+            urlconf=getattr(request, 'urlconf', None),
             format=format_,
         )
         return url
