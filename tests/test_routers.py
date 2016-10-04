@@ -1,6 +1,7 @@
 from django.conf.urls import include
 from django.conf.urls import url
 from django.core.urlresolvers import resolve
+
 from nose.tools import assert_raises
 from nose.tools import eq_
 from nose.tools import ok_
@@ -9,6 +10,7 @@ from rest_framework.routers import SimpleRouter
 from rest_framework.test import APIRequestFactory
 from rest_framework.versioning import NamespaceVersioning
 
+from drf_nested_resources.lookup_helpers import RequestParentLookupHelper
 from drf_nested_resources.routers import NestedResource
 from drf_nested_resources.routers import Resource
 from drf_nested_resources.routers import make_urlpatterns_from_resources
@@ -489,7 +491,10 @@ class TestDispatch(FixtureTestCase):
                         'host',
                         'hosts',
                         WebsiteHostViewSet,
-                        parent_field_lookup='websites',
+                        parent_field_lookup=RequestParentLookupHelper(
+                            'websites',
+                            'website',
+                        ),
                     ),
                 ],
             ),
@@ -520,7 +525,10 @@ class TestDispatch(FixtureTestCase):
                         'website',
                         'websites',
                         WebsiteViewSet,
-                        parent_field_lookup='hosts',
+                        parent_field_lookup=RequestParentLookupHelper(
+                            'hosts',
+                            'host',
+                        ),
                     ),
                 ],
             ),

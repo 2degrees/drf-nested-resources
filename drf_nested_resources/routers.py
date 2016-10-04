@@ -40,7 +40,8 @@ from rest_framework.status import HTTP_404_NOT_FOUND
 from drf_nested_resources import DETAIL_VIEW_NAME_SUFFIX
 from drf_nested_resources import LIST_VIEW_NAME_SUFFIX
 from drf_nested_resources._forged_request import RequestForger
-
+from drf_nested_resources.lookup_helpers import SimpleParentLookupHelper, \
+    BaseParentLookupHelper
 
 Resource = Record.create_type(
     'Resource',
@@ -197,14 +198,14 @@ def _populate_resource_relationships(
 def _get_reverse_relationship_name(parent_field_lookup, model):
     model_options = model._meta
     direct_parent_lookup, _, indirect_parent_lookups = \
-        parent_field_lookup.partition(LOOKUP_SEP)
+        str(parent_field_lookup).partition(LOOKUP_SEP)
     field = model_options.get_field(direct_parent_lookup)
 
     if isinstance(field, (OneToOneRel, ManyToManyRel)):
         relationship = field
     elif isinstance(field, (ForeignKey, ManyToManyField)):
         relationship = field.rel
-    else:
+    else:  # pragma: no cover
         assert False, 'field of type {!r} is not supported'.format(type(field))
 
     if indirect_parent_lookups:
@@ -294,7 +295,7 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
             for resource_name, lookup in resource_names_and_lookups:
                 urlvar_value = self.kwargs[resource_name]
                 ancestor_lookups.append(lookup)
-                lookup = LOOKUP_SEP.join(ancestor_lookups)
+                lookup = LOOKUP_SEP.join(str(_) for _ in ancestor_lookups)
                 filters[lookup] = urlvar_value
             queryset = super(NestedViewSet, self).get_queryset()
             queryset = queryset.filter(**filters)
@@ -403,12 +404,11 @@ class _URLGenerator:
                 view_name_suffix,
             )
 
-        request_kwargs = request.parser_context['kwargs']
         view_kwargs = self._build_view_kwargs(
             leaf_resource_object,
             resource_name,
             relation_route,
-            request_kwargs,
+            request,
         )
         url = reverse(
             view_name,
@@ -440,24 +440,22 @@ class _URLGenerator:
         leaf_resource_object,
         leaf_resource_name,
         relation_route,
-        request_kwargs,
+        request,
     ):
         current_object = leaf_resource_object
         view_kwargs = {leaf_resource_name: leaf_resource_object.pk}
         resource_names_and_parent_lookups = \
             reversed(relation_route.ancestor_lookup_by_resource_name.items())
-
-        has_used_request_kwargs = False
         for resource_name, parent_lookup in resource_names_and_parent_lookups:
-            if resource_name in request_kwargs:
-                view_kwarg_value = request_kwargs[resource_name]
-                has_used_request_kwargs = True
+            if isinstance(parent_lookup, str):
+                parent_lookup_helper = SimpleParentLookupHelper(parent_lookup)
+            elif isinstance(parent_lookup, BaseParentLookupHelper):
+                parent_lookup_helper = parent_lookup
             else:
-                assert not has_used_request_kwargs, \
-                    'The kwargs on request are malformed'
-                current_object = getattr(current_object, parent_lookup)
-                view_kwarg_value = current_object.pk
-            view_kwargs[resource_name] = view_kwarg_value
+                assert False, \
+                    'parent lookup must be either a string or lookup helper'
+            current_object = parent_lookup_helper(current_object, request)
+            view_kwargs[resource_name] = current_object.pk
         return view_kwargs
 
     @staticmethod

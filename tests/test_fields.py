@@ -1,6 +1,8 @@
 from abc import ABCMeta, abstractproperty
 
+from django.core.exceptions import ImproperlyConfigured
 from django.core.urlresolvers import resolve
+from drf_nested_resources.lookup_helpers import RequestParentLookupHelper
 from nose.tools import assert_is_none, assert_in
 from nose.tools import assert_raises
 from nose.tools import eq_
@@ -18,7 +20,8 @@ from drf_nested_resources.routers import make_urlpatterns_from_resources
 
 from tests._testcases import FixtureTestCase
 from tests.django_project.app.models import Developer, ProgrammingLanguage
-from tests.django_project.app.views import DeveloperViewSet
+from tests.django_project.app.views import DeveloperViewSet, DeveloperViewSet2, \
+    WebsiteHostViewSet, WebsiteViewSet
 from tests.django_project.app.views import ProgrammingLanguageVersionViewSet
 from tests.django_project.app.views import ProgrammingLanguageViewSet
 
@@ -64,15 +67,20 @@ class _BaseHyperlinkedFieldTestCase(FixtureTestCase, metaclass=ABCMeta):
         destination_view_object,
         source_view_name='developer-list',
         source_view_kwargs=None,
+        urlpatterns=None,
         format_=None,
     ):
+        urlpatterns = urlpatterns or self.urlpatterns
+
         django_request = self._make_django_request(
             source_view_name,
             source_view_kwargs or {},
+            urlpatterns,
         )
         drf_request = self._make_drf_request(django_request)
 
-        url_generator = self._get_url_generator(drf_request, format_)
+        url_generator = \
+            self._get_url_generator(drf_request, urlpatterns, format_)
         field = self.FIELD_CLASS(
             source_view_name,
             url_generator=url_generator,
@@ -87,9 +95,10 @@ class _BaseHyperlinkedFieldTestCase(FixtureTestCase, metaclass=ABCMeta):
         )
         return url
 
-    def _get_url_generator(self, drf_request, format_):
-        url = reverse('developer-list', urlconf=self.urlpatterns)
-        view_func = resolve(url, self.urlpatterns).func
+    @staticmethod
+    def _get_url_generator(drf_request, urlpatterns, format_):
+        url = reverse('developer-list', urlconf=urlpatterns)
+        view_func = resolve(url, urlpatterns).func
         viewset = view_func.cls(
             request=drf_request,
             format_kwarg=format_,
@@ -99,23 +108,30 @@ class _BaseHyperlinkedFieldTestCase(FixtureTestCase, metaclass=ABCMeta):
         url_generator = serializer.Meta.url_generator
         return url_generator
 
-    def _make_url_with_kwargs(self, view_name, view_kwargs, format_=None):
+    def _make_url_with_kwargs(
+        self,
+        view_name,
+        view_kwargs,
+        urlpatterns=None,
+        format_=None,
+    ):
         django_request = _REQUEST_FACTORY.get('/')
         url_path = reverse(
             view_name,
             kwargs=view_kwargs,
-            urlconf=self.urlpatterns,
+            urlconf=urlpatterns or self.urlpatterns,
             format=format_,
         )
         url = django_request.build_absolute_uri(url_path)
         return url
 
-    def _make_django_request(self, view_name, view_kwargs):
+    @staticmethod
+    def _make_django_request(view_name, view_kwargs, urlpatterns):
         url_path = \
-            reverse(view_name, kwargs=view_kwargs, urlconf=self.urlpatterns)
+            reverse(view_name, kwargs=view_kwargs, urlconf=urlpatterns)
         django_request = _REQUEST_FACTORY.get(url_path)
         django_request.resolver_match = (view_name, (), view_kwargs)
-        django_request.urlconf = self.urlpatterns
+        django_request.urlconf = urlpatterns
         return django_request
 
     @staticmethod
@@ -154,7 +170,7 @@ class TestIdentityField(_BaseHyperlinkedFieldTestCase):
         url = super(TestIdentityField, self)._make_url_with_kwargs(
             self.VIEW_NAME,
             {'developer': object_.pk},
-            format_,
+            format_=format_,
         )
         return url
 
@@ -229,34 +245,6 @@ class TestRelatedLinkedFieldURLGeneration(_BaseHyperlinkedFieldTestCase):
         )
         eq_(url_expected, url_generated)
 
-    def test_view_kwargs_from_request(self):
-        source_view_name = 'version-detail'
-
-        version = self.programming_language_version
-        source_view_kwargs = {
-            'developer': self.non_existing_developer_pk,
-            'language': version.language.pk,
-            'version': version.pk
-        }
-
-        destination_view_name = 'language-detail'
-        destination_view_kwargs = {
-            'developer': self.non_existing_developer_pk,
-            'language': version.language.pk,
-        }
-
-        url_generated = self._make_url_via_field(
-            destination_view_name,
-            version.language,
-            source_view_name,
-            source_view_kwargs,
-        )
-        url_expected = self._make_url_with_kwargs(
-            destination_view_name,
-            destination_view_kwargs,
-        )
-        eq_(url_expected, url_generated)
-
     def test_unsaved_resource(self):
         view_name = 'developer-detail'
         url_generated = self._make_url_via_field(view_name, Developer())
@@ -273,7 +261,42 @@ class TestRelatedLinkedFieldURLGeneration(_BaseHyperlinkedFieldTestCase):
         url_expected = self._make_url_with_kwargs(
             view_name,
             {'developer': self.developer1.pk},
-            format_,
+            format_=format_,
+        )
+        eq_(url_expected, url_generated)
+
+    def test_indirect_model_relation_resource(self):
+        resources = [
+            Resource(
+                'developer',
+                'developers',
+                DeveloperViewSet2,
+                [
+                    NestedResource(
+                        'version',
+                        'versions',
+                        ProgrammingLanguageVersionViewSet,
+                        parent_field_lookup='language__author',
+                    ),
+                ],
+            ),
+        ]
+        urlpatterns = make_urlpatterns_from_resources(resources)
+
+        version = self.programming_language_version
+        view_name = 'version-detail'
+        url_generated = self._make_url_via_field(
+            view_name,
+            version,
+            urlpatterns=urlpatterns,
+        )
+        url_expected = self._make_url_with_kwargs(
+            view_name,
+            {
+                'developer': self.developer1.pk,
+                'version': version.pk,
+            },
+            urlpatterns=urlpatterns,
         )
         eq_(url_expected, url_generated)
 
@@ -293,6 +316,93 @@ class TestRelatedLinkedFieldURLGeneration(_BaseHyperlinkedFieldTestCase):
             self._make_url_via_field,
             view_name,
             self.developer1,
+        )
+
+    def test_illegal_field_type(self):
+        resources = [
+            Resource(
+                'developer',
+                'developers',
+                DeveloperViewSet,
+                [
+                    NestedResource(
+                        'language',
+                        'languages',
+                        ProgrammingLanguageViewSet,
+                        parent_field_lookup=RequestParentLookupHelper(
+                            'author', 'developer'),
+                    ),
+                ],
+            ),
+        ]
+
+        urlpatterns = make_urlpatterns_from_resources(resources)
+
+        assert_raises(
+            AssertionError,
+            self._make_url_via_field,
+            'language-detail',
+            self.programming_language1,
+            source_view_name='developer-detail',
+            source_view_kwargs={'developer': self.programming_language1.author},
+            urlpatterns=urlpatterns,
+        )
+
+    def test_improperly_configured_related_field(self):
+        resources = [
+            Resource(
+                'host',
+                'hosts',
+                WebsiteHostViewSet,
+                [
+                    NestedResource(
+                        'website',
+                        'websites',
+                        WebsiteViewSet,
+                        parent_field_lookup=RequestParentLookupHelper(
+                            'hosts',
+                            'host',
+                        ),
+                    ),
+                ],
+            ),
+            Resource('developer', 'developers', DeveloperViewSet)
+        ]
+        urlpatterns = make_urlpatterns_from_resources(resources)
+
+        assert_raises(
+            ImproperlyConfigured,
+            self._make_url_via_field,
+            'website-detail',
+            self.programming_language1,
+            urlpatterns=urlpatterns,
+        )
+
+    def test_illegal_parent_field_lookup_type(self):
+        resources = [
+            Resource(
+                'developer',
+                'developers',
+                DeveloperViewSet,
+                [
+                    NestedResource(
+                        'language',
+                        'languages',
+                        ProgrammingLanguageViewSet,
+                        parent_field_lookup=_FakeParentLookupHelper('author'),
+                    ),
+                ],
+            ),
+        ]
+
+        urlpatterns = make_urlpatterns_from_resources(resources)
+
+        assert_raises(
+            AssertionError,
+            self._make_url_via_field,
+            'language-detail',
+            self.programming_language1,
+            urlpatterns=urlpatterns,
         )
 
 
@@ -364,3 +474,12 @@ class _ProgrammingLanguageSerializer(HyperlinkedNestedModelSerializer):
         resource_name = 'language'
         url_generator = lambda *args: None
         view_names_by_relationship = {'author': 'developer'}
+
+
+class _FakeParentLookupHelper(object):
+
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return self.value
