@@ -49,7 +49,9 @@ Resource = Record.create_type(
     'collection_name',
     'viewset',
     'sub_resources',
+    'cross_linked_resources',
     sub_resources=(),
+    cross_linked_resources=None,
 )
 
 NestedResource = Resource.extend_type(
@@ -193,6 +195,21 @@ def _populate_resource_relationships(
                 resource.viewset.queryset.model,
             )
             parent_relationships[reverse_relationship_name] = resource.name
+
+        cross_linked_resources = resource.cross_linked_resources
+        if cross_linked_resources:
+            resource_relationships = \
+                relationships_by_resource_name[resource.name]
+            for field_name, linked_resource in cross_linked_resources.items():
+                resource_relationships[field_name] = linked_resource.name
+                reverse_relationship_name = _get_reverse_relationship_name(
+                    field_name,
+                    resource.viewset.queryset.model,
+                )
+                related_resource_relationships = \
+                    relationships_by_resource_name[linked_resource.name]
+                related_resource_relationships[reverse_relationship_name] = \
+                    resource.name
 
         _populate_resource_relationships(
             resource.sub_resources,

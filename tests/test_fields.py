@@ -2,7 +2,6 @@ from abc import ABCMeta, abstractproperty
 
 from django.core.exceptions import ImproperlyConfigured
 from django.core.urlresolvers import resolve
-from drf_nested_resources.lookup_helpers import RequestParentLookupHelper
 from nose.tools import assert_is_none, assert_in
 from nose.tools import assert_raises
 from nose.tools import eq_
@@ -11,17 +10,18 @@ from rest_framework.reverse import reverse
 from rest_framework.test import APIRequestFactory
 from rest_framework.utils.model_meta import get_field_info
 
-from drf_nested_resources.fields import HyperlinkedNestedIdentityField, \
-    HyperlinkedNestedModelSerializer
+from drf_nested_resources.fields import HyperlinkedNestedIdentityField
 from drf_nested_resources.fields import HyperlinkedNestedRelatedField
+from drf_nested_resources.lookup_helpers import RequestParentLookupHelper
 from drf_nested_resources.routers import NestedResource
 from drf_nested_resources.routers import Resource
 from drf_nested_resources.routers import make_urlpatterns_from_resources
 
 from tests._testcases import FixtureTestCase
-from tests.django_project.app.models import Developer, ProgrammingLanguage
+from tests.django_project.app.models import Developer, ProgrammingLanguage, \
+    Website
 from tests.django_project.app.views import DeveloperViewSet, DeveloperViewSet2, \
-    WebsiteHostViewSet, WebsiteViewSet
+    WebsiteHostViewSet, WebsiteViewSet, WebsiteVisitViewSet
 from tests.django_project.app.views import ProgrammingLanguageVersionViewSet
 from tests.django_project.app.views import ProgrammingLanguageViewSet
 
@@ -29,13 +29,17 @@ from tests.django_project.app.views import ProgrammingLanguageViewSet
 _REQUEST_FACTORY = APIRequestFactory(SERVER_NAME='example.org')
 
 
-class _BaseHyperlinkedFieldTestCase(FixtureTestCase, metaclass=ABCMeta):
+class _BaseTestCase(FixtureTestCase):
 
-    FIELD_CLASS = abstractproperty()
+    def __init__(self, *args, **kwargs):
+        super(_BaseTestCase, self).__init__(*args, **kwargs)
+        self.resources = None
+        self.urlpatterns = None
 
     def setUp(self):
-        super(_BaseHyperlinkedFieldTestCase, self).setUp()
+        super(_BaseTestCase, self).setUp()
 
+        website_resource = Resource('website', 'websites', WebsiteViewSet)
         self.resources = [
             Resource(
                 'developer',
@@ -55,11 +59,60 @@ class _BaseHyperlinkedFieldTestCase(FixtureTestCase, metaclass=ABCMeta):
                             ),
                         ],
                         parent_field_lookup='author',
+                        cross_linked_resources={'website': website_resource},
                     ),
                 ],
+
             ),
+            Resource(
+                'website-visit',
+                'website-visits',
+                WebsiteVisitViewSet,
+                cross_linked_resources={'website': website_resource},
+            ),
+            website_resource,
         ]
+
         self.urlpatterns = make_urlpatterns_from_resources(self.resources)
+
+    @staticmethod
+    def _get_serializer_by_name(
+        drf_request,
+        urlpatterns,
+        view_name,
+        view_kwargs=None,
+        format_=None,
+    ):
+        url = reverse(view_name, kwargs=view_kwargs, urlconf=urlpatterns)
+        view_func = resolve(url, urlpatterns).func
+        viewset = view_func.cls(
+            request=drf_request,
+            format_kwarg=format_,
+            **view_func.initkwargs,
+        )
+        serializer = viewset.get_serializer()
+        return serializer
+
+    @staticmethod
+    def _make_django_request(view_name, view_kwargs, urlpatterns):
+        url_path = \
+            reverse(view_name, kwargs=view_kwargs, urlconf=urlpatterns)
+        django_request = _REQUEST_FACTORY.get(url_path)
+        django_request.resolver_match = (view_name, (), view_kwargs)
+        django_request.urlconf = urlpatterns
+        return django_request
+
+    @staticmethod
+    def _make_drf_request(django_request):
+        view_kwargs = django_request.resolver_match[2]
+        drf_request = \
+            Request(django_request, parser_context={'kwargs': view_kwargs})
+        return drf_request
+
+
+class _BaseHyperlinkedFieldTestCase(_BaseTestCase, metaclass=ABCMeta):
+
+    FIELD_CLASS = abstractproperty()
 
     def _make_url_via_field(
         self,
@@ -95,16 +148,13 @@ class _BaseHyperlinkedFieldTestCase(FixtureTestCase, metaclass=ABCMeta):
         )
         return url
 
-    @staticmethod
-    def _get_url_generator(drf_request, urlpatterns, format_):
-        url = reverse('developer-list', urlconf=urlpatterns)
-        view_func = resolve(url, urlpatterns).func
-        viewset = view_func.cls(
-            request=drf_request,
-            format_kwarg=format_,
-            **view_func.initkwargs,
+    def _get_url_generator(self, drf_request, urlpatterns, format_):
+        serializer = self._get_serializer_by_name(
+            drf_request,
+            urlpatterns,
+            'developer-list',
+            format_=format_,
         )
-        serializer = viewset.get_serializer()
         url_generator = serializer.Meta.url_generator
         return url_generator
 
@@ -124,22 +174,6 @@ class _BaseHyperlinkedFieldTestCase(FixtureTestCase, metaclass=ABCMeta):
         )
         url = django_request.build_absolute_uri(url_path)
         return url
-
-    @staticmethod
-    def _make_django_request(view_name, view_kwargs, urlpatterns):
-        url_path = \
-            reverse(view_name, kwargs=view_kwargs, urlconf=urlpatterns)
-        django_request = _REQUEST_FACTORY.get(url_path)
-        django_request.resolver_match = (view_name, (), view_kwargs)
-        django_request.urlconf = urlpatterns
-        return django_request
-
-    @staticmethod
-    def _make_drf_request(django_request):
-        view_kwargs = django_request.resolver_match[2]
-        drf_request = \
-            Request(django_request, parser_context={'kwargs': view_kwargs})
-        return drf_request
 
 
 class TestIdentityField(_BaseHyperlinkedFieldTestCase):
@@ -406,43 +440,40 @@ class TestRelatedLinkedFieldURLGeneration(_BaseHyperlinkedFieldTestCase):
         )
 
 
-class TestSerializerURLFieldGeneration(FixtureTestCase):
+class TestSerializerURLFieldGeneration(_BaseTestCase):
 
     def test_identity_field(self):
-        serializer = _DeveloperSerializer(instance=self.developer1)
+        serializer = self._get_serializer_for_view(
+            'developer-detail',
+            {'developer': self.developer1.pk},
+        )
         field_class, field_kwargs = serializer.build_url_field('url', Developer)
 
         eq_(HyperlinkedNestedIdentityField, field_class)
-
-        assert_in('view_name', field_kwargs)
-        eq_('developer-detail', field_kwargs['view_name'])
-        assert_in('url_generator', field_kwargs)
-        eq_(
-            _DeveloperSerializer.Meta.url_generator,
-            field_kwargs['url_generator'],
-        )
+        self._check_field_kwargs(field_kwargs, serializer, 'developer-detail')
 
     def test_related_resource(self):
-        serializer = \
-            _ProgrammingLanguageSerializer(instance=self.programming_language1)
+        serializer = self._get_serializer_for_view(
+            'language-detail',
+            {
+                'developer': self.programming_language1.author.pk,
+                'language': self.programming_language1.pk,
+            },
+        )
 
         field_info = get_field_info(ProgrammingLanguage)
         relation_info = field_info.forward_relations['author']
         field_class, field_kwargs = \
             serializer.build_relational_field('author', relation_info)
 
-        eq_(HyperlinkedNestedRelatedField, field_class)
-
-        assert_in('view_name', field_kwargs)
-        eq_('developer-detail', field_kwargs['view_name'])
-        assert_in('url_generator', field_kwargs)
-        eq_(
-            serializer.Meta.url_generator,
-            field_kwargs['url_generator'],
-        )
+        self._assert_field_is_related_field(field_class)
+        self._check_field_kwargs(field_kwargs, serializer, 'developer-detail')
 
     def test_related_resource_collection(self):
-        serializer = _DeveloperSerializer(instance=self.developer1)
+        serializer = self._get_serializer_for_view(
+            'developer-detail',
+            {'developer': self.developer1.pk},
+        )
 
         field_info = get_field_info(Developer)
         relation_info = field_info.reverse_relations['programming_languages']
@@ -451,29 +482,71 @@ class TestSerializerURLFieldGeneration(FixtureTestCase):
             relation_info,
         )
 
-        eq_(HyperlinkedNestedRelatedField, field_class)
+        self._assert_field_is_related_field(field_class)
+        self._check_field_kwargs(field_kwargs, serializer, 'language-list')
 
-        assert_in('view_name', field_kwargs)
-        eq_('language-list', field_kwargs['view_name'])
-        assert_in('url_generator', field_kwargs)
-        eq_(
-            serializer.Meta.url_generator,
-            field_kwargs['url_generator'],
+    def test_related_resource_with_no_common_ancestor(self):
+        serializer = self._get_serializer_for_view(
+            'language-detail',
+            {
+                'developer': self.programming_language1.author.pk,
+                'language': self.programming_language1.pk,
+            },
         )
 
+        field_info = get_field_info(ProgrammingLanguage)
+        relation_info = field_info.forward_relations['website']
+        field_class, field_kwargs = \
+            serializer.build_relational_field('website', relation_info)
 
-class _DeveloperSerializer(HyperlinkedNestedModelSerializer):
-    class Meta:
-        resource_name = 'developer'
-        url_generator = lambda *args: None
-        view_names_by_relationship = {'programming_languages': 'language'}
+        self._assert_field_is_related_field(field_class)
+        self._check_field_kwargs(field_kwargs, serializer, 'website-detail')
 
+    def test_related_resource_collection_with_no_common_ancestor(self):
+        serializer = self._get_serializer_for_view(
+            'website-detail',
+            {'website': self.website.pk},
+        )
 
-class _ProgrammingLanguageSerializer(HyperlinkedNestedModelSerializer):
-    class Meta:
-        resource_name = 'language'
-        url_generator = lambda *args: None
-        view_names_by_relationship = {'author': 'developer'}
+        field_info = get_field_info(Website)
+        relation_info = field_info.reverse_relations['visits']
+        field_class, field_kwargs = serializer.build_relational_field(
+            'visits',
+            relation_info,
+        )
+
+        self._assert_field_is_related_field(field_class)
+        self._check_field_kwargs(
+            field_kwargs,
+            serializer,
+            'website_visit-list',
+        )
+
+    def _get_serializer_for_view(self, view_name, view_kwargs):
+        django_request = \
+            self._make_django_request('developer-list', None, self.urlpatterns)
+        drf_request = self._make_drf_request(django_request)
+        serializer = self._get_serializer_by_name(
+            drf_request,
+            self.urlpatterns,
+            view_name,
+            view_kwargs,
+        )
+        return serializer
+
+    @staticmethod
+    def _assert_field_is_related_field(field_class):
+        eq_(HyperlinkedNestedRelatedField, field_class)
+
+    @staticmethod
+    def _check_field_kwargs(field_kwargs, serializer, expected_view_name):
+        assert_in('view_name', field_kwargs)
+        eq_(expected_view_name, field_kwargs['view_name'])
+        assert_in('url_generator', field_kwargs)
+        eq_(
+            serializer.__class__.Meta.url_generator,
+            field_kwargs['url_generator'],
+        )
 
 
 class _FakeParentLookupHelper(object):
