@@ -70,6 +70,8 @@ _VALID_PYTHON_IDENTIFIER_RE = compile_regex(r"^[a-z_]\w*$", IGNORECASE)
 
 
 def make_urlpatterns_from_resources(resources, router_class=None):
+    _format_resource_names(resources)
+
     router_class = router_class or DefaultRouter
     nested_router_class = _create_nested_route_router(router_class, resources)
     router = nested_router_class()
@@ -89,6 +91,12 @@ def make_urlpatterns_from_resources(resources, router_class=None):
         router.register(url_path, nested_viewset, flattened_resource.name)
     urlpatterns = router.urls
     return tuple(urlpatterns)
+
+
+def _format_resource_names(resources):
+    for resource in resources:
+        resource.name = _format_resource_name(resource.name)
+        _format_resource_names(resource.sub_resources)
 
 
 def _format_resource_name(name):
@@ -135,8 +143,6 @@ def _flatten_nested_resources(
 
     relational_routes = []
     for resource in resources:
-        resource.name = _format_resource_name(resource.name)
-
         parent_lookups_by_resource_collection_name = \
             _create_ancestor_lookup_by_resource_name(
                 ancestor_lookup_by_resource_name,
