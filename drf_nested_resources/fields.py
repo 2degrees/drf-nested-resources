@@ -95,13 +95,15 @@ class HyperlinkedNestedModelSerializer(HyperlinkedModelSerializer):
         field_class, field_kwargs = \
             super_.build_relational_field(field_name, relation_info)
 
+        view_name = self.Meta.view_names_by_relationship[field_name]
+
         if relation_info.to_many:
             view_name_suffix = LIST_VIEW_NAME_SUFFIX
             del field_kwargs['many']
         else:
             view_name_suffix = DETAIL_VIEW_NAME_SUFFIX
+            field_kwargs['lookup_url_kwarg'] = view_name
 
-        view_name = self.Meta.view_names_by_relationship[field_name]
         field_kwargs['view_name'] = view_name + view_name_suffix
         field_kwargs['url_generator'] = self.Meta.url_generator
         return field_class, field_kwargs

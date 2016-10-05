@@ -468,6 +468,7 @@ class TestSerializerURLFieldGeneration(_BaseTestCase):
 
         self._assert_field_is_related_field(field_class)
         self._check_field_kwargs(field_kwargs, serializer, 'developer-detail')
+        self._check_lookup_url_kwarg_in_field_kwargs('developer', field_kwargs)
 
     def test_related_resource_collection(self):
         serializer = self._get_serializer_for_view(
@@ -501,6 +502,7 @@ class TestSerializerURLFieldGeneration(_BaseTestCase):
 
         self._assert_field_is_related_field(field_class)
         self._check_field_kwargs(field_kwargs, serializer, 'website-detail')
+        self._check_lookup_url_kwarg_in_field_kwargs('website', field_kwargs)
 
     def test_related_resource_collection_with_no_common_ancestor(self):
         serializer = self._get_serializer_for_view(
@@ -547,6 +549,14 @@ class TestSerializerURLFieldGeneration(_BaseTestCase):
             serializer.__class__.Meta.url_generator,
             field_kwargs['url_generator'],
         )
+
+    @staticmethod
+    def _check_lookup_url_kwarg_in_field_kwargs(
+        expected_lookup_url_kwarg,
+        field_kwargs,
+    ):
+        assert_in('lookup_url_kwarg', field_kwargs)
+        eq_(expected_lookup_url_kwarg, field_kwargs['lookup_url_kwarg'])
 
 
 class _FakeParentLookupHelper(object):
