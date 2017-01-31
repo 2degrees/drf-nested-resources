@@ -5,7 +5,8 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 
 from drf_nested_resources.fields import HyperlinkedNestedModelSerializer
-from tests.django_project.app.models import Developer
+from tests.django_project.app.models import Developer, \
+    ProgrammingLanguageImplementation
 from tests.django_project.app.models import ProgrammingLanguage
 from tests.django_project.app.models import ProgrammingLanguageVersion
 from tests.django_project.app.models import Website
@@ -89,6 +90,26 @@ class ProgrammingLanguageVersionViewSet(ModelViewSet):
     queryset = ProgrammingLanguageVersion.objects.all()
 
     serializer_class = _ProgrammingLanguageVersionSerializer
+
+
+class _ProgrammingLanguageImplementationSerializer(
+    HyperlinkedNestedModelSerializer,
+):
+
+    class Meta(object):
+
+        model = ProgrammingLanguageImplementation
+
+        fields = ('url', 'name', 'language')
+
+        field_forced_to_ancestor = 'language'
+
+
+class ProgrammingLanguageImplementationViewSet(ModelViewSet):
+
+    queryset = ProgrammingLanguageImplementation.objects.all()
+
+    serializer_class = _ProgrammingLanguageImplementationSerializer
 
 
 class _WebsiteSerializer(HyperlinkedNestedModelSerializer):

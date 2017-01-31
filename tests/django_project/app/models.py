@@ -29,6 +29,13 @@ class ProgrammingLanguageVersion(Model):
     language = ForeignKey(ProgrammingLanguage, related_name='versions')
 
 
+class ProgrammingLanguageImplementation(Model):
+
+    name = CharField(max_length=10)
+
+    language = ForeignKey(ProgrammingLanguage, related_name='implementations')
+
+
 class Website(Model):
 
     base_url = URLField()

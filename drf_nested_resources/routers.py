@@ -308,6 +308,24 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
                     view_names_by_relationship = \
                         relationships_by_resource_name[resource_name]
 
+                def __init__(self, *args, **kwargs):
+                    super().__init__(*args, **kwargs)
+
+                    is_creation_or_update = hasattr(self, 'initial_data')
+                    field_forced_to_ancestor = \
+                        getattr(self.Meta, 'field_forced_to_ancestor', None)
+                    if is_creation_or_update and field_forced_to_ancestor:
+                        field = self.fields[field_forced_to_ancestor]
+                        ancestor_object = \
+                            _extract_ancestor_object_from_field(field)
+                        ancestor_url = self.Meta.url_generator(
+                            field.view_name,
+                            ancestor_object,
+                            field.context['request'],
+                        )
+                        self.initial_data[field_forced_to_ancestor] = \
+                            ancestor_url
+
             return NestedSerializer
 
         def get_queryset(self):
@@ -399,6 +417,14 @@ def _get_resource_ancestors_and_lookups(flattened_resource):
     resource_names_and_lookups = \
         tuple(flattened_resource.ancestor_lookup_by_resource_name.items())
     return reversed(resource_names_and_lookups)
+
+
+def _extract_ancestor_object_from_field(field):
+    request = field.context['request']
+    urlvars = request.parser_context['kwargs']
+    ancestor_pk = urlvars[field.lookup_url_kwarg]
+    ancestor_object = field.queryset.get(pk=ancestor_pk)
+    return ancestor_object
 
 
 class _URLGenerator:

@@ -1,6 +1,14 @@
 Changelog
 =========
 
+Version 1.2 Beta 1
+------------------
+
+Implemented ability to force a field value in a nested resource to be set to
+the URL of an ascending resource. This is done using the optional attribute
+``field_forced_to_ancestor`` on the serializer's ``Meta`` class.
+
+
 Version 1.1
 -----------
 

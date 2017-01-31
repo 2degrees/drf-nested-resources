@@ -2,9 +2,10 @@ from abc import ABCMeta, abstractproperty
 
 from django.core.exceptions import ImproperlyConfigured
 from django.core.urlresolvers import resolve
-from nose.tools import assert_is_none, assert_in
+from nose.tools import assert_is_none, assert_in, assert_false
 from nose.tools import assert_raises
 from nose.tools import eq_
+from rest_framework.fields import empty
 from rest_framework.request import Request
 from rest_framework.reverse import reverse
 from rest_framework.test import APIRequestFactory
@@ -19,9 +20,10 @@ from drf_nested_resources.routers import make_urlpatterns_from_resources
 
 from tests._testcases import FixtureTestCase
 from tests.django_project.app.models import Developer, ProgrammingLanguage, \
-    Website
+    Website, ProgrammingLanguageImplementation
 from tests.django_project.app.views import DeveloperViewSet, DeveloperViewSet2, \
-    WebsiteHostViewSet, WebsiteViewSet, WebsiteVisitViewSet
+    WebsiteHostViewSet, WebsiteViewSet, WebsiteVisitViewSet, \
+    ProgrammingLanguageImplementationViewSet
 from tests.django_project.app.views import ProgrammingLanguageVersionViewSet
 from tests.django_project.app.views import ProgrammingLanguageViewSet
 
@@ -57,6 +59,12 @@ class _BaseTestCase(FixtureTestCase):
                                 ProgrammingLanguageVersionViewSet,
                                 parent_field_lookup='language',
                             ),
+                            NestedResource(
+                                'implementation',
+                                'implementations',
+                                ProgrammingLanguageImplementationViewSet,
+                                parent_field_lookup='language',
+                            ),
                         ],
                         parent_field_lookup='author',
                         cross_linked_resources={'website': website_resource},
@@ -76,28 +84,39 @@ class _BaseTestCase(FixtureTestCase):
         self.urlpatterns = make_urlpatterns_from_resources(self.resources)
 
     @staticmethod
-    def _get_serializer_by_name(
+    def _get_serializer_from_request(
         drf_request,
-        urlpatterns,
-        view_name,
-        view_kwargs=None,
         format_=None,
+        *serializer_args,
+        **serializer_kwargs
     ):
-        url = reverse(view_name, kwargs=view_kwargs, urlconf=urlpatterns)
-        view_func = resolve(url, urlpatterns).func
+        view_name = drf_request.resolver_match[0]
+        view_kwargs = drf_request.resolver_match[2]
+        url_path = \
+            reverse(view_name, kwargs=view_kwargs, urlconf=drf_request.urlconf)
+        view_func = resolve(url_path, drf_request.urlconf).func
         viewset = view_func.cls(
             request=drf_request,
             format_kwarg=format_,
             **view_func.initkwargs,
         )
-        serializer = viewset.get_serializer()
+        serializer = \
+            viewset.get_serializer(*serializer_args, **serializer_kwargs)
         return serializer
 
-    @staticmethod
-    def _make_django_request(view_name, view_kwargs, urlpatterns):
+    def _make_django_request(
+        self,
+        view_name,
+        view_kwargs,
+        urlpatterns=None,
+        method='GET',
+        data=None,
+    ):
+        urlpatterns = urlpatterns or self.urlpatterns
         url_path = \
             reverse(view_name, kwargs=view_kwargs, urlconf=urlpatterns)
-        django_request = _REQUEST_FACTORY.get(url_path)
+        request_method = getattr(_REQUEST_FACTORY, method.lower())
+        django_request = request_method(url_path, data=data)
         django_request.resolver_match = (view_name, (), view_kwargs)
         django_request.urlconf = urlpatterns
         return django_request
@@ -108,6 +127,11 @@ class _BaseTestCase(FixtureTestCase):
         drf_request = \
             Request(django_request, parser_context={'kwargs': view_kwargs})
         return drf_request
+
+    def _get_url_generator(self, drf_request, format_=None):
+        serializer = self._get_serializer_from_request(drf_request, format_)
+        url_generator = serializer.Meta.url_generator
+        return url_generator
 
 
 class _BaseHyperlinkedFieldTestCase(_BaseTestCase, metaclass=ABCMeta):
@@ -132,8 +156,7 @@ class _BaseHyperlinkedFieldTestCase(_BaseTestCase, metaclass=ABCMeta):
         )
         drf_request = self._make_drf_request(django_request)
 
-        url_generator = \
-            self._get_url_generator(drf_request, urlpatterns, format_)
+        url_generator = self._get_url_generator(drf_request, format_)
         field = self.FIELD_CLASS(
             source_view_name,
             url_generator=url_generator,
@@ -147,16 +170,6 @@ class _BaseHyperlinkedFieldTestCase(_BaseTestCase, metaclass=ABCMeta):
             format_,
         )
         return url
-
-    def _get_url_generator(self, drf_request, urlpatterns, format_):
-        serializer = self._get_serializer_by_name(
-            drf_request,
-            urlpatterns,
-            'developer-list',
-            format_=format_,
-        )
-        url_generator = serializer.Meta.url_generator
-        return url_generator
 
     def _make_url_with_kwargs(
         self,
@@ -525,15 +538,9 @@ class TestSerializerURLFieldGeneration(_BaseTestCase):
         )
 
     def _get_serializer_for_view(self, view_name, view_kwargs):
-        django_request = \
-            self._make_django_request('developer-list', None, self.urlpatterns)
+        django_request = self._make_django_request(view_name, view_kwargs)
         drf_request = self._make_drf_request(django_request)
-        serializer = self._get_serializer_by_name(
-            drf_request,
-            self.urlpatterns,
-            view_name,
-            view_kwargs,
-        )
+        serializer = self._get_serializer_from_request(drf_request)
         return serializer
 
     @staticmethod
@@ -557,6 +564,65 @@ class TestSerializerURLFieldGeneration(_BaseTestCase):
     ):
         assert_in('lookup_url_kwarg', field_kwargs)
         eq_(expected_lookup_url_kwarg, field_kwargs['lookup_url_kwarg'])
+
+
+class TestFieldForcedToAncestor(_BaseTestCase):
+
+    def setUp(self):
+        super().setUp()
+
+        self._implementation = ProgrammingLanguageImplementation.objects.create(
+            language=self.programming_language1,
+            name='PyPy',
+        )
+
+    def test_request_setting_field_values(self):
+        serializer = self._init_implementation_serializer({'name': 'CPython'})
+
+        assert_in('language', serializer.initial_data)
+
+        language_url = \
+            self._generate_url('language-detail', self.programming_language1)
+        eq_(language_url, serializer.initial_data['language'])
+
+    def test_request_without_setting_field_values(self):
+        serializer = self._init_implementation_serializer()
+
+        assert_false(hasattr(serializer, 'initial_data'))
+
+    def _init_implementation_serializer(self, data=None):
+        drf_request = self._make_drf_request_to_implementation(data)
+        serializer_data = data or empty
+        serializer = self._get_serializer_from_request(
+            drf_request,
+            instance=self._implementation,
+            data=serializer_data,
+        )
+        return serializer
+
+    def _make_drf_request_to_implementation(self, data):
+        implementation_language = self._implementation.language
+        view_kwargs = {
+            'developer': implementation_language.author.id,
+            'language': implementation_language.id,
+            'implementation': self._implementation.id,
+        }
+        method = 'PATCH' if data else 'GET'
+        django_request = self._make_django_request(
+            'implementation-detail',
+            view_kwargs,
+            method=method,
+            data=data,
+        )
+        drf_request = self._make_drf_request(django_request)
+        return drf_request
+
+    def _generate_url(self, view_name, resource_object):
+        django_request = self._make_django_request('developer-list', None)
+        drf_request = self._make_drf_request(django_request)
+        url_generator = self._get_url_generator(drf_request)
+        url = url_generator(view_name, resource_object, drf_request)
+        return url
 
 
 class _FakeParentLookupHelper(object):
