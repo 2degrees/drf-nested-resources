@@ -1,7 +1,6 @@
 from django.conf.urls import include
 from django.conf.urls import url
 from django.core.urlresolvers import resolve
-
 from nose.tools import assert_raises
 from nose.tools import eq_
 from nose.tools import ok_
@@ -16,7 +15,7 @@ from drf_nested_resources.routers import Resource
 from drf_nested_resources.routers import make_urlpatterns_from_resources
 from tests._testcases import FixtureTestCase
 from tests._testcases import TestCase
-from tests._utils import TestClient
+from tests._utils import TestClient, make_response_for_request
 from tests.django_project.app.models import Website
 from tests.django_project.app.models import WebsiteVisit
 from tests.django_project.app.views import DeveloperViewSet
@@ -152,17 +151,14 @@ class TestDispatch(FixtureTestCase):
     ]
 
     def test_parent_detail(self):
-        urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
-
-        client = TestClient(urlpatterns)
-
-        url_path = reverse(
+        response = self._make_response_for_request(
             'developer-detail',
-            kwargs={'developer': self.developer1.pk},
-            urlconf=urlpatterns,
+            {'developer': self.developer1.pk},
         )
-        response = client.get(url_path)
+
         response_data = response.data
+
+        urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
         expected_languages_url = reverse(
             'language-list',
             kwargs={'developer': self.developer1.pk},
@@ -170,18 +166,14 @@ class TestDispatch(FixtureTestCase):
         )
         languages_url = response_data['programming_languages']
         ok_(languages_url.endswith(expected_languages_url))
+
         eq_(200, response.status_code)
 
     def test_parent_list(self):
-        urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
-
-        client = TestClient(urlpatterns)
-
-        url_path = reverse('developer-list', urlconf=urlpatterns)
-        response = client.get(url_path)
+        response = self._make_response_for_request('developer-list')
         eq_(200, response.status_code)
 
-    def test_parent_list_mounted_on_different_urlpath(self):
+    def test_parent_list_mounted_on_different_url_path(self):
         api_urls = list(make_urlpatterns_from_resources(self._RESOURCES))
         urlpatterns = (url(r'^api/', include(api_urls)),)
 
@@ -192,32 +184,19 @@ class TestDispatch(FixtureTestCase):
         eq_(200, response.status_code)
 
     def test_non_existing_parent_detail(self):
-        urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
-
-        client = TestClient(urlpatterns)
-
-        url_path = reverse(
+        response = self._make_response_for_request(
             'developer-detail',
-            kwargs={'developer': self.non_existing_developer_pk},
-            urlconf=urlpatterns,
+            {'developer': self.non_existing_developer_pk},
         )
-        response = client.get(url_path)
         eq_(404, response.status_code)
 
     def test_child_detail(self):
-        urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
-
-        client = TestClient(urlpatterns)
-
-        url_path = reverse(
-            'language-detail',
-            kwargs={
-                'developer': self.developer1.pk,
-                'language': self.programming_language1.pk,
-            },
-            urlconf=urlpatterns,
-        )
-        response = client.get(url_path)
+        view_kwargs = {
+            'developer': self.developer1.pk,
+            'language': self.programming_language1.pk,
+        }
+        response = \
+            self._make_response_for_request('language-detail', view_kwargs)
         eq_(200, response.status_code)
 
     def test_child_detail_inside_namespace(self):
@@ -238,61 +217,35 @@ class TestDispatch(FixtureTestCase):
         eq_(200, response.status_code)
 
     def test_child_list(self):
-        urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
-
-        client = TestClient(urlpatterns)
-
-        url_path = reverse(
+        response = self._make_response_for_request(
             'language-list',
-            kwargs={'developer': self.developer1.pk},
-            urlconf=urlpatterns,
+            {'developer': self.developer1.pk},
         )
-        response = client.get(url_path)
         eq_(200, response.status_code)
 
     def test_child_detail_with_wrong_parent(self):
-        urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
-
-        client = TestClient(urlpatterns)
-
-        url_path = reverse(
-            'language-detail',
-            kwargs={
-                'developer': self.developer1.pk,
-                'language': self.programming_language2.pk,
-            },
-            urlconf=urlpatterns,
-        )
-        response = client.get(url_path)
+        view_kwargs = {
+            'developer': self.developer1.pk,
+            'language': self.programming_language2.pk,
+        }
+        response = \
+            self._make_response_for_request('language-detail', view_kwargs)
         eq_(404, response.status_code)
 
     def test_child_detail_with_non_existing_parent(self):
-        urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
-
-        client = TestClient(urlpatterns)
-
-        url_path = reverse(
-            'language-detail',
-            kwargs={
-                'developer': self.non_existing_developer_pk,
-                'language': self.programming_language1.pk,
-            },
-            urlconf=urlpatterns,
-        )
-        response = client.get(url_path)
+        view_kwargs = {
+            'developer': self.non_existing_developer_pk,
+            'language': self.programming_language1.pk,
+        }
+        response = \
+            self._make_response_for_request('language-detail', view_kwargs)
         eq_(404, response.status_code)
 
     def test_child_list_with_non_existing_parent(self):
-        urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
-
-        client = TestClient(urlpatterns)
-
-        url_path = reverse(
+        response = self._make_response_for_request(
             'language-list',
-            kwargs={'developer': self.non_existing_developer_pk},
-            urlconf=urlpatterns,
+            {'developer': self.non_existing_developer_pk},
         )
-        response = client.get(url_path)
         eq_(404, response.status_code)
 
     def test_child_detail_with_non_viewable_parent(self):
@@ -311,20 +264,13 @@ class TestDispatch(FixtureTestCase):
                 ],
             ),
         ]
-        urlpatterns = make_urlpatterns_from_resources(resources)
 
-        client = TestClient(urlpatterns)
-
-        url_path = reverse(
-            'host-detail',
-            kwargs={
-                'website': self.website.pk,
-                'host': self.website_host.pk,
-            },
-            urlconf=urlpatterns,
-        )
-
-        response = client.get(url_path)
+        view_kwargs = {
+            'website': self.website.pk,
+            'host': self.website_host.pk,
+        }
+        response = \
+            make_response_for_request('host-detail', view_kwargs, resources)
         eq_(404, response.status_code)
 
     def test_child_list_with_non_viewable_parent(self):
@@ -343,69 +289,41 @@ class TestDispatch(FixtureTestCase):
                 ],
             ),
         ]
-        urlpatterns = make_urlpatterns_from_resources(resources)
 
-        client = TestClient(urlpatterns)
-
-        url_path = reverse(
+        response = make_response_for_request(
             'host-list',
-            kwargs={
-                'website': self.website.pk,
-            },
-            urlconf=urlpatterns,
+            {'website': self.website.pk},
+            resources,
         )
-
-        response = client.get(url_path)
         eq_(404, response.status_code)
 
     def test_non_existing_child_detail(self):
-        urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
-
-        client = TestClient(urlpatterns)
-
-        url_path = reverse(
-            'language-detail',
-            kwargs={
-                'developer': self.developer1.pk,
-                'language': self.non_existing_developer_pk,
-            },
-            urlconf=urlpatterns,
-        )
-        response = client.get(url_path)
+        view_kwargs = {
+            'developer': self.developer1.pk,
+            'language': self.non_existing_developer_pk,
+        }
+        response = \
+            self._make_response_for_request('language-detail', view_kwargs)
         eq_(404, response.status_code)
 
     def test_grand_child_detail(self):
-        urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
-
-        client = TestClient(urlpatterns)
-
-        url_path = reverse(
-            'version-detail',
-            kwargs={
-                'developer': self.developer1.pk,
-                'language': self.programming_language1.pk,
-                'version': self.programming_language_version.pk,
-            },
-            urlconf=urlpatterns,
-        )
-        response = client.get(url_path)
+        view_kwargs = {
+            'developer': self.developer1.pk,
+            'language': self.programming_language1.pk,
+            'version': self.programming_language_version.pk,
+        }
+        response = \
+            self._make_response_for_request('version-detail', view_kwargs)
         eq_(200, response.status_code)
 
     def test_detail_with_non_existing_grandparent(self):
-        urlpatterns = make_urlpatterns_from_resources(self._RESOURCES)
-
-        client = TestClient(urlpatterns)
-
-        url_path = reverse(
-            'version-detail',
-            kwargs={
-                'developer': self.non_existing_developer_pk,
-                'language': self.programming_language1.pk,
-                'version': self.programming_language_version.pk,
-            },
-            urlconf=urlpatterns,
-        )
-        response = client.get(url_path)
+        view_kwargs = {
+            'developer': self.non_existing_developer_pk,
+            'language': self.programming_language1.pk,
+            'version': self.programming_language_version.pk,
+        }
+        response = \
+            self._make_response_for_request('version-detail', view_kwargs)
         eq_(404, response.status_code)
 
     def test_indirect_relation_detail(self):
@@ -424,19 +342,12 @@ class TestDispatch(FixtureTestCase):
                 ],
             ),
         ]
-        urlpatterns = make_urlpatterns_from_resources(resources)
-
-        client = TestClient(urlpatterns)
-
-        url_path = reverse(
-            'version-detail',
-            kwargs={
-                'developer': self.developer1.pk,
-                'version': self.programming_language_version.pk,
-            },
-            urlconf=urlpatterns,
-        )
-        response = client.get(url_path)
+        view_kwargs = {
+            'developer': self.developer1.pk,
+            'version': self.programming_language_version.pk,
+        }
+        response = \
+            make_response_for_request('version-detail', view_kwargs, resources)
         eq_(200, response.status_code)
 
     def test_indirect_child_detail_via_one_to_one(self):
@@ -464,20 +375,13 @@ class TestDispatch(FixtureTestCase):
                 ],
             ),
         ]
-        urlpatterns = make_urlpatterns_from_resources(resources)
-
-        client = TestClient(urlpatterns)
-
-        url_path = reverse(
-            'visit-detail',
-            kwargs={
-                'developer': self.developer1.pk,
-                'language': self.programming_language1.pk,
-                'visit': visit.pk,
-            },
-            urlconf=urlpatterns,
-        )
-        response = client.get(url_path)
+        view_kwargs = {
+            'developer': self.developer1.pk,
+            'language': self.programming_language1.pk,
+            'visit': visit.pk,
+        }
+        response = \
+            make_response_for_request('visit-detail', view_kwargs, resources)
         eq_(200, response.status_code)
 
     def test_many_to_many_relationships(self):
@@ -499,19 +403,12 @@ class TestDispatch(FixtureTestCase):
                 ],
             ),
         ]
-        urlpatterns = make_urlpatterns_from_resources(resources)
-
-        client = TestClient(urlpatterns)
-
-        url_path = reverse(
-            'host-detail',
-            kwargs={
-                'website': self.website.pk,
-                'host': self.website_host.pk,
-            },
-            urlconf=urlpatterns,
-        )
-        response = client.get(url_path)
+        view_kwargs = {
+            'website': self.website.pk,
+            'host': self.website_host.pk,
+        }
+        response = \
+            make_response_for_request('host-detail', view_kwargs, resources)
         eq_(200, response.status_code)
 
     def test_reverse_many_to_many_relationships(self):
@@ -533,20 +430,18 @@ class TestDispatch(FixtureTestCase):
                 ],
             ),
         ]
-        urlpatterns = make_urlpatterns_from_resources(resources)
-
-        client = TestClient(urlpatterns)
-
-        url_path = reverse(
-            'website-detail',
-            kwargs={
-                'website': self.website.pk,
-                'host': self.website_host.pk,
-            },
-            urlconf=urlpatterns,
-        )
-        response = client.get(url_path)
+        view_kwargs = {
+            'website': self.website.pk,
+            'host': self.website_host.pk,
+        }
+        response = \
+            make_response_for_request('website-detail', view_kwargs, resources)
         eq_(200, response.status_code)
+
+    def _make_response_for_request(self, view_name, view_kwargs=None):
+        response = \
+            make_response_for_request(view_name, view_kwargs, self._RESOURCES)
+        return response
 
 
 class _WebsiteViewSetWithCustomGetQueryset(WebsiteViewSet):

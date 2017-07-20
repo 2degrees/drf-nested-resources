@@ -1,6 +1,6 @@
 ##############################################################################
 #
-# Copyright (c) 2015-2016, 2degrees Limited.
+# Copyright (c) 2015-2017, 2degrees Limited.
 # All Rights Reserved.
 #
 # This file is part of drf-nested-resources
@@ -371,8 +371,7 @@ def _create_nested_viewset(flattened_resource, relationships_by_resource_name):
                 self._get_parent_resource_detail_view_url(request)
 
             if parent_detail_view_url:
-                request_forger = \
-                    RequestForger(urlconf, request.get_host(), request.user)
+                request_forger = RequestForger(request)
                 response = request_forger.head(parent_detail_view_url)
                 status_code = response.status_code
             else:

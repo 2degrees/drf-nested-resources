@@ -1,70 +1,73 @@
-from django.contrib.auth.models import User
-from django.core.urlresolvers import reverse
+from unittest.mock import patch
+
+from nose.tools import assert_not_in
 from nose.tools.trivial import eq_
 from rest_framework.permissions import BasePermission
 from rest_framework.permissions import IsAuthenticated
 
 from drf_nested_resources.routers import NestedResource
 from drf_nested_resources.routers import Resource
-from drf_nested_resources.routers import make_urlpatterns_from_resources
 from tests._testcases import FixtureTestCase
-from tests._utils import TestClient
+from tests._utils import make_response_for_request
 from tests.django_project.app.views import DeveloperViewSet
 from tests.django_project.app.views import ProgrammingLanguageVersionViewSet
 from tests.django_project.app.views import ProgrammingLanguageViewSet
 
 
 class TestPermissions(FixtureTestCase):
-
     def test_access_to_authorized_child_of_authorized_parent(self):
         self._assert_permission_granted_to_child_resource(
-            DeveloperViewSet,
+            _HeadersRequiredDeveloperViewSet,
             ProgrammingLanguageViewSet,
-            )
+            environ_items=_HasRequiredEnvironPermission.VARIABLES,
+        )
 
     def test_access_to_authorized_child_list_of_authorized_parent(self):
         self._assert_permission_granted_to_child_resource_list(
-            DeveloperViewSet,
+            _HeadersRequiredDeveloperViewSet,
             ProgrammingLanguageViewSet,
-            )
+            environ_items=_HasRequiredEnvironPermission.VARIABLES,
+        )
 
     def test_access_to_unauthorized_child_of_authorized_parent(self):
         self._assert_permission_denied_to_child_resource(
             DeveloperViewSet,
             AccessDeniedProgrammingLanguageViewSet,
-            )
+        )
 
     def test_access_to_unauthorized_child_list_of_authorized_parent(self):
         self._assert_permission_denied_to_child_resource_list(
             DeveloperViewSet,
             AccessDeniedProgrammingLanguageViewSet,
-            )
+        )
 
     def test_access_to_authorized_child_of_unauthorized_parent(self):
         self._assert_permission_denied_to_child_resource(
-            AccessDeniedDeveloperViewSet,
+            _HeadersRequiredDeveloperViewSet,
             ProgrammingLanguageViewSet,
-            )
+        )
 
     def test_access_to_authorized_child_list_of_unauthorized_parent(self):
         self._assert_permission_denied_to_child_resource_list(
-            AccessDeniedDeveloperViewSet,
+            _HeadersRequiredDeveloperViewSet,
             ProgrammingLanguageViewSet,
-            )
+        )
 
     def test_access_to_unauthorized_child_of_unauthorized_parent(self):
         self._assert_permission_denied_to_child_resource(
             AccessDeniedDeveloperViewSet,
             AccessDeniedProgrammingLanguageViewSet,
-            )
+        )
 
     def test_access_to_unauthorized_child_list_of_unauthorized_parent(self):
         self._assert_permission_denied_to_child_resource_list(
             AccessDeniedDeveloperViewSet,
             AccessDeniedProgrammingLanguageViewSet,
-            )
+        )
 
-    def test_access_to_unauthorized_child_detail_route_of_unauthorized_parent(self):
+    def test_access_to_unauthorized_child_detail_route_of_unauthorized_parent(
+        self,
+    ):
         self._assert_permission_denied_to_child_resource(
             AccessDeniedDeveloperViewSet,
             ProgrammingLanguageViewSet,
@@ -78,7 +81,9 @@ class TestPermissions(FixtureTestCase):
             url_name='language-type',
         )
 
-    def test_access_to_authorized_child_detail_route_of_unauthorized_child(self):
+    def test_access_to_authorized_child_detail_route_of_unauthorized_child(
+        self,
+    ):
         self._assert_permission_denied_to_child_resource(
             AccessDeniedDeveloperViewSet,
             ProgrammingLanguageViewSet,
@@ -91,53 +96,90 @@ class TestPermissions(FixtureTestCase):
             'developer': self.developer1.pk,
             'language': self.programming_language1.pk,
             'version': self.programming_language_version.pk,
-            }
+        }
         self._assert_permission_denied_to_child_resource(
             AccessDeniedDeveloperViewSet,
             ProgrammingLanguageViewSet,
             url_name=url_name,
             urlvars=urlvars,
-            )
+        )
 
-    def test_access_to_authorized_grandchild_list_of_unauthorized_grandparent(self):
+    def test_access_to_authorized_grandchild_list_of_unauthorized_grandparent(
+        self):
         url_name = 'version-list'
         urlvars = {
             'developer': self.developer1.pk,
             'language': self.programming_language1.pk,
-            }
+        }
         self._assert_permission_denied_to_child_resource(
             AccessDeniedDeveloperViewSet,
             ProgrammingLanguageViewSet,
             url_name=url_name,
             urlvars=urlvars,
+        )
+
+    def test_request_copied_correctly(self):
+        resources = \
+            self._build_resources(DeveloperViewSet, ProgrammingLanguageViewSet)
+
+        http_host = 'www.example.org'
+
+        patched_method = \
+            _patch_method(DeveloperViewSet, 'check_object_permissions')
+        with patched_method as check_obj_permissions_mock:
+            make_response_for_request(
+                'language-list',
+                {'developer': self.developer1.pk},
+                resources,
+                method_name='POST',
+                environ_items={
+                    'QUERY_STRING': 'foo=bar',
+                    'HTTP_HOST': http_host,
+                },
+                data={'key': 'value'},
             )
+
+        eq_(1, check_obj_permissions_mock.call_count)
+
+        call_args = check_obj_permissions_mock.call_args
+        request = call_args[0][0]
+
+        # Ensure conversion to HEAD request
+        eq_('HEAD', request.method)
+        eq_('', request.META['QUERY_STRING'])
+        eq_(0, len(request.META['wsgi.input']))
+        eq_('0', request.META['CONTENT_LENGTH'])
+        assert_not_in('CONTENT_TYPE', request.META)
+
+        # Ensure other WSGI environment variables remain unchanged
+        eq_(http_host, request.META.get('HTTP_HOST'))
 
     def _assert_permission_granted_to_child_resource(
         self,
         parent_view_set,
         child_view_set,
         url_name=None,
-        user=None,
-        ):
+        environ_items=None,
+    ):
         response = self._get_response_from_child_resource(
             parent_view_set,
             child_view_set,
-            user=user,
+            environ_items=environ_items,
             url_name=url_name,
-            )
+        )
         eq_(200, response.status_code)
 
     def _assert_permission_granted_to_child_resource_list(
         self,
         parent_view_set,
         child_view_set,
-        user=None,
-        ):
+        environ_items=None,
+    ):
         response = self._get_response_from_child_resource_list(
             parent_view_set,
             child_view_set,
-            user=user,
-            )
+            environ_items=environ_items,
+        )
         eq_(200, response.status_code)
 
     def _assert_permission_denied_to_child_resource(
@@ -146,13 +188,13 @@ class TestPermissions(FixtureTestCase):
         child_view_set,
         url_name=None,
         urlvars=None,
-        ):
+    ):
         response = self._get_response_from_child_resource(
             parent_view_set,
             child_view_set,
             url_name,
             urlvars,
-            )
+        )
         eq_(403, response.status_code)
 
     def _assert_permission_denied_to_child_resource_list(
@@ -161,13 +203,13 @@ class TestPermissions(FixtureTestCase):
         child_view_set,
         url_name=None,
         urlvars=None,
-        ):
+    ):
         response = self._get_response_from_child_resource_list(
             parent_view_set,
             child_view_set,
             url_name,
             urlvars,
-            )
+        )
         eq_(403, response.status_code)
 
     def _get_response_from_child_resource(
@@ -176,20 +218,18 @@ class TestPermissions(FixtureTestCase):
         child_view_set,
         url_name=None,
         urlvars=None,
-        user=None,
-        ):
-        resources = self._build_resources(parent_view_set, child_view_set)
-        urlpatterns = make_urlpatterns_from_resources(resources)
-
-        client = TestClient(urlpatterns, user)
-
-        url_name = url_name or 'language-detail'
+        environ_items=None,
+    ):
         urlvars = urlvars or {
             'developer': self.developer1.pk,
             'language': self.programming_language1.pk,
-            }
-        url_path = reverse(url_name, kwargs=urlvars, urlconf=urlpatterns)
-        response = client.get(url_path)
+        }
+        response = make_response_for_request(
+            url_name or 'language-detail',
+            urlvars,
+            self._build_resources(parent_view_set, child_view_set),
+            environ_items=environ_items,
+        )
         return response
 
     def _get_response_from_child_resource_list(
@@ -198,20 +238,18 @@ class TestPermissions(FixtureTestCase):
         child_view_set,
         url_name=None,
         urlvars=None,
-        user=None,
-        ):
-        resources = self._build_resources(parent_view_set, child_view_set)
-        urlpatterns = make_urlpatterns_from_resources(resources)
-
-        client = TestClient(urlpatterns, user)
-
-        url_name = url_name or 'language-list'
-        urlvars = urlvars or {'developer': self.developer1.pk}
-        url_path = reverse(url_name, kwargs=urlvars, urlconf=urlpatterns)
-        response = client.get(url_path)
+        environ_items=None,
+    ):
+        response = make_response_for_request(
+            url_name or 'language-list',
+            urlvars or {'developer': self.developer1.pk},
+            self._build_resources(parent_view_set, child_view_set),
+            environ_items=environ_items,
+        )
         return response
 
-    def _build_resources(self, parent_view_set, child_view_set):
+    @staticmethod
+    def _build_resources(parent_view_set, child_view_set):
         resources = [
             Resource(
                 'developer',
@@ -228,49 +266,17 @@ class TestPermissions(FixtureTestCase):
                                 'versions',
                                 ProgrammingLanguageVersionViewSet,
                                 parent_field_lookup='language',
-                                ),
-                            ],
+                            ),
+                        ],
                         parent_field_lookup='author',
-                        ),
-                    ],
-                ),
-            ]
+                    ),
+                ],
+            ),
+        ]
         return resources
 
 
-class TestUserPermissions(TestPermissions):
-
-    def test_access_to_authorized_child_of_authorized_parent(self):
-        user = User.objects.create_user('user')
-        self._assert_permission_granted_to_child_resource(
-            IsAuthenticatedDeveloperViewSet,
-            ProgrammingLanguageViewSet,
-            user=user,
-            )
-
-    def test_access_to_authorized_child_of_authorized_parent_list(self):
-        user = User.objects.create_user('user')
-        self._assert_permission_granted_to_child_resource_list(
-            IsAuthenticatedDeveloperViewSet,
-            ProgrammingLanguageViewSet,
-            user=user,
-            )
-
-    def test_access_to_authorized_child_of_unauthorized_parent(self):
-        self._assert_permission_denied_to_child_resource(
-            IsAuthenticatedDeveloperViewSet,
-            ProgrammingLanguageViewSet,
-            )
-
-    def test_access_to_authorized_child_of_unauthorized_parent_list(self):
-        self._assert_permission_denied_to_child_resource_list(
-            IsAuthenticatedDeveloperViewSet,
-            ProgrammingLanguageViewSet,
-            )
-
-
 class _DenyAll(BasePermission):
-
     def has_permission(self, request, view):
         return False
 
@@ -278,16 +284,45 @@ class _DenyAll(BasePermission):
         return False
 
 
-class AccessDeniedDeveloperViewSet(DeveloperViewSet):
+class _HasRequiredEnvironPermission(BasePermission):
+    VARIABLES = {'X_FOO': 'Bar'}
 
-    permission_classes = (_DenyAll, )
+    def has_permission(self, request, view):
+        return self._check_required_environ_variables(request)
+
+    def has_object_permission(self, request, view, obj):
+        return self._check_required_environ_variables(request)
+
+    @classmethod
+    def _check_required_environ_variables(cls, request):
+        relevant_environ_items = {}
+        for variable_name in cls.VARIABLES:
+            variable_value = request.META.get(variable_name)
+            relevant_environ_items[variable_name] = variable_value
+        return relevant_environ_items == cls.VARIABLES
+
+
+class AccessDeniedDeveloperViewSet(DeveloperViewSet):
+    permission_classes = (_DenyAll,)
 
 
 class AccessDeniedProgrammingLanguageViewSet(ProgrammingLanguageViewSet):
-
-    permission_classes = (_DenyAll, )
+    permission_classes = (_DenyAll,)
 
 
 class IsAuthenticatedDeveloperViewSet(DeveloperViewSet):
+    permission_classes = (IsAuthenticated,)
 
-    permission_classes = (IsAuthenticated, )
+
+class _HeadersRequiredDeveloperViewSet(DeveloperViewSet):
+    permission_classes = (_HasRequiredEnvironPermission,)
+
+
+def _patch_method(cls, method_name):
+    python_path_to_method = _get_python_path_to_class_method(cls, method_name)
+    return patch(python_path_to_method)
+
+
+def _get_python_path_to_class_method(cls, method_name):
+    import_path = '{}.{}.{}'.format(cls.__module__, cls.__name__, method_name)
+    return import_path

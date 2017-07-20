@@ -1,6 +1,13 @@
 Changelog
 =========
 
+Version 1.2 Beta 2
+------------------
+
+Fixed support for non-session-based authenticators when checking permissions in
+viewsets in the ancestry.
+
+
 Version 1.2 Beta 1
 ------------------
 
