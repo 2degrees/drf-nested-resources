@@ -1,6 +1,12 @@
 Changelog
 =========
 
+Version 1.2 Beta 3
+------------------
+
+Fixed error when urlconf was not explicitly set on the request
+
+
 Version 1.2 Beta 2
 ------------------
 

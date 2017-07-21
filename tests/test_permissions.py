@@ -1,5 +1,6 @@
 from unittest.mock import patch
 
+from django.test.utils import override_settings
 from nose.tools import assert_not_in
 from nose.tools.trivial import eq_
 from rest_framework.permissions import BasePermission
@@ -153,6 +154,15 @@ class TestPermissions(FixtureTestCase):
 
         # Ensure other WSGI environment variables remain unchanged
         eq_(http_host, request.META.get('HTTP_HOST'))
+
+    @override_settings(ROOT_URLCONF='tests.django_project.testing_urls')
+    def test_no_explicit_urlconf(self):
+        response = make_response_for_request(
+            'language-list',
+            {'developer': self.developer1.pk},
+            None,
+        )
+        eq_(200, response.status_code)
 
     def _assert_permission_granted_to_child_resource(
         self,

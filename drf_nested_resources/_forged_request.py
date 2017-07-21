@@ -13,7 +13,7 @@
 # INFRINGEMENT, AND FITNESS FOR A PARTICULAR PURPOSE.
 #
 ##############################################################################
-
+from django.conf import settings
 from django.test.client import Client, FakePayload
 from django.test.client import ClientHandler
 
@@ -26,7 +26,8 @@ class RequestForger(Client):
         new_environ.pop('CONTENT_TYPE', None)
         super(RequestForger, self).__init__(**new_environ)
 
-        self.handler = _ForgedRequestHandler(original_request.urlconf)
+        urlconf = getattr(original_request, 'urlconf', settings.ROOT_URLCONF)
+        self.handler = _ForgedRequestHandler(urlconf)
 
 
 class _ForgedRequestHandler(ClientHandler):

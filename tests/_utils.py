@@ -22,7 +22,8 @@ class _TestClientHandler(ClientHandler):
         self._environ_items = environ_items or {}
 
     def get_response(self, request):
-        request.urlconf = self._urlconf
+        if self._urlconf:
+            request.urlconf = self._urlconf
         for header_name, header_value in self._environ_items.items():
             request.META[header_name] = header_value
         return super(_TestClientHandler, self).get_response(request)
@@ -31,12 +32,15 @@ class _TestClientHandler(ClientHandler):
 def make_response_for_request(
     view_name,
     view_kwargs,
-    resources,
+    resources=None,
     method_name='GET',
     environ_items=None,
     **kwargs
 ):
-    urlpatterns = make_urlpatterns_from_resources(resources)
+    if resources:
+        urlpatterns = make_urlpatterns_from_resources(resources)
+    else:
+        urlpatterns = None
     client = TestClient(urlpatterns, environ_items)
     url_path = reverse(view_name, kwargs=view_kwargs, urlconf=urlpatterns)
     method = getattr(client, method_name.lower())
