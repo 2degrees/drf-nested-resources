@@ -1,6 +1,6 @@
 from django.conf.urls import include
 from django.conf.urls import url
-from django.core.urlresolvers import resolve
+from django.urls import resolve
 from nose.tools import assert_raises
 from nose.tools import eq_
 from nose.tools import ok_
@@ -9,22 +9,23 @@ from rest_framework.routers import SimpleRouter
 from rest_framework.test import APIRequestFactory
 from rest_framework.versioning import NamespaceVersioning
 
+from django_project.languages.models import Website
+from django_project.languages.models import WebsiteVisit
+from django_project.languages.views import DeveloperViewSet
+from django_project.languages.views import DeveloperViewSet2
+from django_project.languages.views import ProgrammingLanguageVersionViewSet
+from django_project.languages.views import ProgrammingLanguageViewSet
+from django_project.languages.views import WebsiteHostViewSet
+from django_project.languages.views import WebsiteViewSet
+from django_project.languages.views import WebsiteVisitViewSet
 from drf_nested_resources.lookup_helpers import RequestParentLookupHelper
 from drf_nested_resources.routers import NestedResource
 from drf_nested_resources.routers import Resource
 from drf_nested_resources.routers import make_urlpatterns_from_resources
 from tests._testcases import FixtureTestCase
 from tests._testcases import TestCase
-from tests._utils import TestClient, make_response_for_request
-from tests.django_project.app.models import Website
-from tests.django_project.app.models import WebsiteVisit
-from tests.django_project.app.views import DeveloperViewSet
-from tests.django_project.app.views import DeveloperViewSet2
-from tests.django_project.app.views import ProgrammingLanguageVersionViewSet
-from tests.django_project.app.views import ProgrammingLanguageViewSet
-from tests.django_project.app.views import WebsiteHostViewSet
-from tests.django_project.app.views import WebsiteViewSet
-from tests.django_project.app.views import WebsiteVisitViewSet
+from tests._utils import TestClient
+from tests._utils import make_response_for_request
 
 
 class TestURLPatternGeneration(TestCase):
@@ -452,7 +453,7 @@ class _WebsiteViewSetWithCustomGetQueryset(WebsiteViewSet):
 def _mount_urls_on_namespace(urls, namespace):
     urls = list(urls)
     urlpatterns = (
-        url(r'^{}/'.format(namespace), include(urls, namespace=namespace)),
+        url(r'^{}/'.format(namespace), include((urls, 'app'), namespace)),
     )
     return urlpatterns
 

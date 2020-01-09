@@ -6,13 +6,13 @@ from nose.tools.trivial import eq_
 from rest_framework.permissions import BasePermission
 from rest_framework.permissions import IsAuthenticated
 
+from django_project.languages.views import DeveloperViewSet
+from django_project.languages.views import ProgrammingLanguageVersionViewSet
+from django_project.languages.views import ProgrammingLanguageViewSet
 from drf_nested_resources.routers import NestedResource
 from drf_nested_resources.routers import Resource
 from tests._testcases import FixtureTestCase
 from tests._utils import make_response_for_request
-from tests.django_project.app.views import DeveloperViewSet
-from tests.django_project.app.views import ProgrammingLanguageVersionViewSet
-from tests.django_project.app.views import ProgrammingLanguageViewSet
 
 
 class TestPermissions(FixtureTestCase):
@@ -155,7 +155,6 @@ class TestPermissions(FixtureTestCase):
         # Ensure other WSGI environment variables remain unchanged
         eq_(http_host, request.META.get('HTTP_HOST'))
 
-    @override_settings(ROOT_URLCONF='tests.django_project.testing_urls')
     def test_no_explicit_urlconf(self):
         response = make_response_for_request(
             'language-list',

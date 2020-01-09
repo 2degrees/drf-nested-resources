@@ -18,6 +18,7 @@ endpoints:
 First we start with the following Django models:
 
 ```python
+from django.db.models import CASCADE
 from django.db.models.base import Model
 from django.db.models.fields import CharField
 from django.db.models.fields.related import ForeignKey
@@ -32,7 +33,11 @@ class ProgrammingLanguage(Model):
 
     name = CharField(max_length=20)
 
-    author = ForeignKey(Developer, related_name='programming_languages')
+    author = ForeignKey(
+        Developer, 
+        related_name='programming_languages', 
+        on_delete=CASCADE,
+    )
 ```
 
 We will have the two viewsets for both the `developers` and `languages` resource

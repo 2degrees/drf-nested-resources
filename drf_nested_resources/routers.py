@@ -1,6 +1,6 @@
 ##############################################################################
 #
-# Copyright (c) 2015-2017, 2degrees Limited.
+# Copyright (c) 2015-2020, 2degrees Limited.
 # All Rights Reserved.
 #
 # This file is part of drf-nested-resources
@@ -227,7 +227,7 @@ def _get_reverse_relationship_name(parent_field_lookup, model):
     if isinstance(field, (OneToOneRel, ManyToManyRel)):
         relationship = field
     elif isinstance(field, (ForeignKey, ManyToManyField)):
-        relationship = field.rel
+        relationship = field.remote_field
     else:  # pragma: no cover
         assert False, 'field of type {!r} is not supported'.format(type(field))
 

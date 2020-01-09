@@ -1,6 +1,6 @@
-from django.core.urlresolvers import reverse
 from django.test.client import Client
 from django.test.client import ClientHandler
+from django.urls import reverse
 
 from drf_nested_resources.routers import make_urlpatterns_from_resources
 

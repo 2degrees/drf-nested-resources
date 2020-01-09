@@ -1,19 +1,18 @@
-from drf_nested_resources.routers import Resource, NestedResource, \
-    make_urlpatterns_from_resources
-from tests.django_project.app.views import DeveloperViewSet, \
-    ProgrammingLanguageViewSet
-
+from drf_nested_resources.routers import NestedResource
+from drf_nested_resources.routers import Resource
+from drf_nested_resources.routers import make_urlpatterns_from_resources
+from . import views
 
 _RESOURCES = [
     Resource(
         'developer',
         'developers',
-        DeveloperViewSet,
+        views.DeveloperViewSet,
         [
             NestedResource(
                 'language',
                 'languages',
-                ProgrammingLanguageViewSet,
+                views.ProgrammingLanguageViewSet,
                 parent_field_lookup='author',
             ),
         ],

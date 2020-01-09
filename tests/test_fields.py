@@ -1,8 +1,11 @@
-from abc import ABCMeta, abstractproperty
+from abc import ABCMeta
+from abc import abstractproperty
 
 from django.core.exceptions import ImproperlyConfigured
-from django.core.urlresolvers import resolve
-from nose.tools import assert_is_none, assert_in, assert_false
+from django.urls import resolve
+from nose.tools import assert_false
+from nose.tools import assert_in
+from nose.tools import assert_is_none
 from nose.tools import assert_raises
 from nose.tools import eq_
 from rest_framework.fields import empty
@@ -11,22 +14,26 @@ from rest_framework.reverse import reverse
 from rest_framework.test import APIRequestFactory
 from rest_framework.utils.model_meta import get_field_info
 
+from django_project.languages.models import Developer
+from django_project.languages.models import ProgrammingLanguage
+from django_project.languages.models import ProgrammingLanguageImplementation
+from django_project.languages.models import Website
+from django_project.languages.views import DeveloperViewSet
+from django_project.languages.views import DeveloperViewSet2
+from django_project.languages.views import \
+    ProgrammingLanguageImplementationViewSet
+from django_project.languages.views import ProgrammingLanguageVersionViewSet
+from django_project.languages.views import ProgrammingLanguageViewSet
+from django_project.languages.views import WebsiteHostViewSet
+from django_project.languages.views import WebsiteViewSet
+from django_project.languages.views import WebsiteVisitViewSet
 from drf_nested_resources.fields import HyperlinkedNestedIdentityField
 from drf_nested_resources.fields import HyperlinkedNestedRelatedField
 from drf_nested_resources.lookup_helpers import RequestParentLookupHelper
 from drf_nested_resources.routers import NestedResource
 from drf_nested_resources.routers import Resource
 from drf_nested_resources.routers import make_urlpatterns_from_resources
-
 from tests._testcases import FixtureTestCase
-from tests.django_project.app.models import Developer, ProgrammingLanguage, \
-    Website, ProgrammingLanguageImplementation
-from tests.django_project.app.views import DeveloperViewSet, DeveloperViewSet2, \
-    WebsiteHostViewSet, WebsiteViewSet, WebsiteVisitViewSet, \
-    ProgrammingLanguageImplementationViewSet
-from tests.django_project.app.views import ProgrammingLanguageVersionViewSet
-from tests.django_project.app.views import ProgrammingLanguageViewSet
-
 
 _REQUEST_FACTORY = APIRequestFactory(SERVER_NAME='example.org')
 
@@ -135,7 +142,6 @@ class _BaseTestCase(FixtureTestCase):
 
 
 class _BaseHyperlinkedFieldTestCase(_BaseTestCase, metaclass=ABCMeta):
-
     FIELD_CLASS = abstractproperty()
 
     def _make_url_via_field(
@@ -190,7 +196,6 @@ class _BaseHyperlinkedFieldTestCase(_BaseTestCase, metaclass=ABCMeta):
 
 
 class TestIdentityField(_BaseHyperlinkedFieldTestCase):
-
     FIELD_CLASS = HyperlinkedNestedIdentityField
 
     VIEW_NAME = 'developer-detail'
@@ -223,7 +228,6 @@ class TestIdentityField(_BaseHyperlinkedFieldTestCase):
 
 
 class TestRelatedLinkedFieldURLGeneration(_BaseHyperlinkedFieldTestCase):
-
     FIELD_CLASS = HyperlinkedNestedRelatedField
 
     def test_top_level_resource(self):

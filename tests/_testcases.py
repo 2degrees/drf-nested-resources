@@ -1,12 +1,12 @@
-from django.core.urlresolvers import set_urlconf
 from django.db.models import Max
 from django.test.testcases import TestCase as DjangoTestCase
+from django.urls import set_urlconf
 
-from tests.django_project.app.models import Developer
-from tests.django_project.app.models import ProgrammingLanguage
-from tests.django_project.app.models import ProgrammingLanguageVersion
-from tests.django_project.app.models import Website
-from tests.django_project.app.models import WebsiteHost
+from django_project.languages.models import Developer
+from django_project.languages.models import ProgrammingLanguage
+from django_project.languages.models import ProgrammingLanguageVersion
+from django_project.languages.models import Website
+from django_project.languages.models import WebsiteHost
 
 
 class TestCase(DjangoTestCase):
@@ -28,11 +28,11 @@ class FixtureTestCase(TestCase):
         self.programming_language1 = ProgrammingLanguage.objects.create(
             name='Python',
             author=self.developer1,
-            )
+        )
         self.programming_language2 = ProgrammingLanguage.objects.create(
             name='Perl',
             author=self.developer2,
-            )
+        )
         self.programming_language_version = ProgrammingLanguageVersion.objects \
             .create(name='2.7', language=self.programming_language1)
 

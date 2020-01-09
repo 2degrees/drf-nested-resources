@@ -1,6 +1,6 @@
 ##############################################################################
 #
-# Copyright (c) 2015-2016, 2degrees Limited.
+# Copyright (c) 2015-2020, 2degrees Limited.
 # All Rights Reserved.
 #
 # This file is part of drf-nested-resources
@@ -74,10 +74,10 @@ class RequestParentLookupHelper(BaseParentLookupHelper):
     def _get_parent_model(self, current_object):
         related_field = current_object._meta.get_field(self._parent_lookup)
         if isinstance(related_field, ManyToManyRel):
-            relationship = related_field
+            parent = related_field.related_model
         elif isinstance(related_field, ManyToManyField):
-            relationship = related_field.rel
+            parent = related_field.related_model
         else:
             assert False, 'field of type {!r} is not supported'.format(
                 type(related_field))
-        return relationship.model
+        return parent
