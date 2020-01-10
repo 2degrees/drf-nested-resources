@@ -1,6 +1,6 @@
 include VERSION.txt
 include README.md
-include CHANGELOG.txt
+include CHANGELOG.md
 include setup.py
 
 exclude *.pyc

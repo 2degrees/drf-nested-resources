@@ -1,8 +1,8 @@
 Changelog
 =========
 
-Version 2.0
------------
+Version 2.0.0
+-------------
 
 Added support for Django 2.2 and removed support for Django < 2.2
 
